@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package crawler;
+
+option go_package = "./proto";
+
+// 爬虫服务定义
+service CrawlerService {
+  // 启动爬虫任务
+  rpc StartCrawl(CrawlRequest) returns (CrawlResponse);
+}
+
+// 爬虫请求参数
+message CrawlRequest {
+  Site site = 1; //爬取站点
+  string keyword = 2;                  // 搜索关键词，例如"南昌"
+  uint64 post_count = 3;                // 爬取帖子数量
+  uint64 min_likes = 4;                 // 最少点赞数筛选
+  uint64 comment_min_likes = 5;       // 每条评论爬取的回复数量
+  uint64 comments_per_post = 6;         // 每个帖子爬取的评论数量
+  bool include_comments = 7;           // 是否包含评论
+  bool include_images = 8;             // 是否爬取图片URL
+}
+
+// 爬虫响应
+message CrawlResponse {
+  string task_id = 1;                  // 任务ID，用于后续查询状态
+  bool success = 2;                    // 任务是否成功启动
+  string message = 3;                  // 相关信息或错误消息
+}
+
+// 选取爬取站点
+enum Site {
+  XIAOHONGSHU = 0; //xiaohongshu
+}

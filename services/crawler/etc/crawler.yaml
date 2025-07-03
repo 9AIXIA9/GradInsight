@@ -1,0 +1,50 @@
+Name: gradinsight-crawler.rpc
+Mode: ${APP_MODE}
+ListenOn: ${SERVER_LISTEN_ON}
+
+Log:
+  Mode: ${LOG_MODE}  # 可选 file, console, volume
+  Level: ${LOG_LEVEL}   # 日志级别：info, error, severe, fatal, debug
+
+Consul:
+  Host: ${CONSUL_HOST}
+  Key: ${CONSUL_SERVICE_KEY}
+
+Redisx:
+  Host: ${REDIS_HOST}
+  Type: ${REDIS_TYPE}
+  Pass: ${REDIS_PASS}
+  DB: ${REDIS_DB}
+
+MySQL:
+  DSN: ${MYSQL_USER}:${MYSQL_PASS}@tcp(${MYSQL_HOST}:${MYSQL_PORT})/${MYSQL_DATABASE}?charset=utf8mb4&parseTime=true&loc=Local
+
+CacheRedis:
+  - Host: ${CACHE_REDIS_HOST}:${CACHE_REDIS_PORT}
+    Pass: ${CACHE_REDIS_PASSWORD}
+    Type: node
+
+TaskQueue:
+  WorkQueueSize: ${TASK_QUEUE_WORK_QUEUE_SIZE}
+  MaxWorkers: ${TASK_QUEUE_MAX_WORKERS}
+  MaxTaskCacheSize: ${TASK_QUEUE_MAX_CACHE}
+  DivideThreshold: ${TASK_DIVIDE_THRESHOLD}
+
+Resource:
+  DataBasePath: ${RESOURCE_DATA_BASE_PATH}
+  IPs: [ "localhost", "127.0.0.1" ]
+  FingerPrints: [ ]
+  BrowserPath: ${RESOURCE_BROWSER_PATH}
+  Headless: ${RESOURCE_HEADLESS}
+  MaxPoolSize: ${RESOURCE_MAX_SIZE}
+  InitialSize: ${RESOURCE_INITIAL_SIZE}
+  HealthCheckInterval: ${RESOURCE_HEALTH_CHECK_INTERVAL}
+  LoadBalancingStrategy: ${RESOURCE_LOAD_BALANCING_STRATEGY}
+
+BloomFilter:
+  Bits: ${BLOOM_FILTER_BITS}
+  Key: ${BLOOM_FILTER_KEY}
+
+SnowflakeID:
+  StartTime: ${SNOWFLAKE_START_TIME}
+  MachineNode: ${SNOWFLAKE_MACHINE_NODE}
