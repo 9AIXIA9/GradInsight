@@ -8,7 +8,7 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 def get_task_service(request: Request):
     """依赖注入：获取任务服务"""
     from app.services.task_service import TaskService
-    return TaskService(request.app.state.mongodb)
+    return TaskService(request.app.state.mysql_pool)
 
 
 @router.get("", response_model=TaskList)
