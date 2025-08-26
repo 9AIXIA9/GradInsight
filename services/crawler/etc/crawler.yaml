@@ -21,8 +21,10 @@ MySQL:
 
 CacheRedis:
   - Host: ${CACHE_REDIS_HOST}:${CACHE_REDIS_PORT}
+    Type: ${CACHE_REDIS_TYPE}
     Pass: ${CACHE_REDIS_PASSWORD}
-    Type: node
+    DB: ${CACHE_REDIS_DB}
+    Weight: 100
 
 TaskQueue:
   WorkQueueSize: ${TASK_QUEUE_WORK_QUEUE_SIZE}
