@@ -11,12 +11,18 @@ class Settings(BaseSettings):
     APP_DESCRIPTION: str = "专注毕业季小红书数据分析的智能分析平台"
     DEBUG: bool = False
 
-    # MongoDB集合配置
-    MONGODB_URI: str = Field(default="mongodb://localhost:27017")
-    MONGODB_DATABASE: str = Field(default="gradinsight_db")
-    MONGODB_POST_COLLECTION: str = Field(default="gradinsight_posts")
-    MONGODB_TASK_COLLECTION: str = Field(default="gradinsight_tasks")
-    MONGODB_COMMENT_COLLECTION: str = Field(default="gradinsight_comments")
+    # MySQL数据库配置
+    MYSQL_HOST: str = Field(default="localhost")
+    MYSQL_PORT: int = Field(default=4000)
+    MYSQL_USER: str = Field(default="root")
+    MYSQL_PASSWORD: str = Field(default="")
+    MYSQL_DATABASE: str = Field(default="gradinsight")
+    MYSQL_CHARSET: str = Field(default="utf8mb4")
+
+    # 数据库表配置
+    MYSQL_POST_TABLE: str = Field(default="posts")
+    MYSQL_TASK_TABLE: str = Field(default="tasks")
+    MYSQL_COMMENT_TABLE: str = Field(default="comments")
 
     # 分页配置
     DEFAULT_PAGE_SIZE: int = Field(default=20)

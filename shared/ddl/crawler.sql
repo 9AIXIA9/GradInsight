@@ -1,5 +1,4 @@
 -- MySQL数据库表结构定义
--- 替换原有的MongoDB实现
 
 -- 创建数据库（如果不存在）
 CREATE DATABASE IF NOT EXISTS gradinsight DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

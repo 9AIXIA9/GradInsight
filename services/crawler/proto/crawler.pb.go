@@ -69,7 +69,7 @@ func (Site) EnumDescriptor() ([]byte, []int) {
 type CrawlRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Site            Site                   `protobuf:"varint,1,opt,name=site,proto3,enum=crawler.Site" json:"site,omitempty"`                              //爬取站点
-	Keyword         string                 `protobuf:"bytes,2,opt,name=keyword,proto3" json:"keyword,omitempty"`                                           // 搜索关键词，例如"南昌"
+	Keyword         string                 `protobuf:"bytes,2,opt,name=keyword,proto3" json:"keyword,omitempty"`                                           // 搜索关键词，例如"南昌大学"
 	PostCount       uint64                 `protobuf:"varint,3,opt,name=post_count,json=postCount,proto3" json:"post_count,omitempty"`                     // 爬取帖子数量
 	MinLikes        uint64                 `protobuf:"varint,4,opt,name=min_likes,json=minLikes,proto3" json:"min_likes,omitempty"`                        // 最少点赞数筛选
 	CommentMinLikes uint64                 `protobuf:"varint,5,opt,name=comment_min_likes,json=commentMinLikes,proto3" json:"comment_min_likes,omitempty"` // 每条评论爬取的回复数量

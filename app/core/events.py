@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 
 from app.core.config import get_settings
-from app.db.mongodb import connect_to_mongodb, close_mongodb_connection
+from app.db.mysql import connect_to_mysql, close_mysql_connection
 from app.utils.discovery import discover_service
 
 settings = get_settings()
@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 async def startup_event(app: FastAPI) -> None:
     """应用启动事件"""
-    # 连接MongoDB
-    app.state.mongodb = await connect_to_mongodb()
+    # 连接MySQL
+    app.state.mysql_pool = await connect_to_mysql()
 
     # 服务发现
     crawler_host, crawler_port = await discover_service()
@@ -38,7 +38,7 @@ async def startup_event(app: FastAPI) -> None:
 async def shutdown_event(app: FastAPI) -> None:
     """应用关闭事件"""
     # 关闭数据库连接
-    await close_mongodb_connection()
+    await close_mysql_connection()
 
     # 关闭grpc连接
     if hasattr(app.state, "crawler_service") and app.state.crawler_service and app.state.crawler_service.client:

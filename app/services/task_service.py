@@ -2,6 +2,8 @@ import logging
 from datetime import datetime
 from typing import Dict, Optional, Any
 
+import aiomysql
+
 from app.api.models.task import TaskStatus, TaskDetail
 from app.core.config import get_settings
 
@@ -22,9 +24,8 @@ def map_task_status(status_code: int) -> str:
 
 
 class TaskService:
-    def __init__(self, db):
-        self.db = db
-        self.collection = self.db[settings.MONGODB_TASK_COLLECTION]
+    def __init__(self, pool: aiomysql.Pool):
+        self.pool = pool
 
     async def get_tasks(self, skip: int = 0, limit: int = None,
                         status: Optional[str] = None, keyword: Optional[str] = None) -> Dict[str, Any]:
@@ -37,34 +38,64 @@ class TaskService:
         limit = min(limit, settings.MAX_PAGE_SIZE)
 
         # 构建查询条件
-        query = {}
+        where_conditions = []
+        params = []
+
         if status:
-            query["status"] = status
-        if keyword:
-            # 正则匹配关键词
-            query["keyword"] = {"$regex": keyword, "$options": settings.SEARCH_OPTIONS}
-
-        # 计算总数
-        total = await self.collection.count_documents(query)
-
-        # 查询数据
-        cursor = self.collection.find(query).skip(skip).limit(limit).sort(
-            "start_time", settings.POST_SORT_ORDER
-        )
-
-        # 转换数据格式
-        tasks = []
-        async for doc in cursor:
-            task = {
-                "task_id": str(doc["_id"]),
-                "keyword": doc.get("keyword", ""),
-                "site": doc.get("site", 0),
-                "status": self._convert_status(doc.get("status", 3)),  # 默认为pending
-                "created_at": doc.get("start_time", datetime.now()),
-                "completed_at": doc.get("end_time"),
-                "posts_collected": doc.get("posts_collected", 0)
+            # 将字符串状态转换为整数状态码
+            status_code_map = {
+                "completed": 0,
+                "failed": 1,
+                "running": 2,
+                "pending": 3,
+                "divided": 4
             }
-            tasks.append(task)
+            status_code = status_code_map.get(status)
+            if status_code is not None:
+                where_conditions.append("status = %s")
+                params.append(status_code)
+
+        if keyword:
+            where_conditions.append("keyword LIKE %s")
+            params.append(f"%{keyword}%")
+
+        where_clause = " WHERE " + " AND ".join(where_conditions) if where_conditions else ""
+
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                # 计算总数
+                count_sql = f"SELECT COUNT(*) FROM {settings.MYSQL_TASK_TABLE}{where_clause}"
+                await cursor.execute(count_sql, params)
+                total = (await cursor.fetchone())[0]
+
+                # 查询数据
+                order_direction = "DESC" if settings.POST_SORT_ORDER == -1 else "ASC"
+
+                query_sql = f"""
+                SELECT id, keyword, site, status, start_time, end_time, posts_collected
+                FROM {settings.MYSQL_TASK_TABLE}
+                {where_clause}
+                ORDER BY start_time {order_direction}
+                LIMIT %s OFFSET %s
+                """
+
+                query_params = params + [limit, skip]
+                await cursor.execute(query_sql, query_params)
+                rows = await cursor.fetchall()
+
+                # 转换数据格式
+                tasks = []
+                for row in rows:
+                    task = {
+                        "task_id": row[0],
+                        "keyword": row[1] or "",
+                        "site": row[2] or 0,
+                        "status": self._convert_status(row[3] if row[3] is not None else 3),
+                        "created_at": row[4] or datetime.now(),
+                        "completed_at": row[5],
+                        "posts_collected": row[6] or 0
+                    }
+                    tasks.append(task)
 
         # 返回结果
         return {
@@ -86,25 +117,36 @@ class TaskService:
         return status_map.get(status_code, "pending")
 
     async def get_task(self, task_id: str) -> Optional[TaskDetail]:
-        # optional -> 可能为空
         """获取任务详情"""
-        doc = await self.collection.find_one({"_id": task_id})
-        if not doc:
-            return None
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                query_sql = f"""
+                SELECT id, keyword, site, status, start_time, end_time, posts_collected,
+                       post_count, include_comments, min_likes, comments_per_post, 
+                       comment_min_likes, include_images, error_msg
+                FROM {settings.MYSQL_TASK_TABLE}
+                WHERE id = %s
+                """
 
-        return TaskDetail(
-            task_id=str(doc["_id"]),
-            keyword=doc["keyword"],
-            site=doc["site"],
-            status=TaskStatus(map_task_status(doc["status"])),
-            created_at=doc["start_time"],
-            completed_at=doc.get("end_time"),
-            posts_collected=doc.get("posts_collected", 0),
-            post_count=doc["post_count"],
-            include_comments=doc["include_comments"],
-            min_likes=doc["min_likes"],
-            comments_per_post=doc["comments_per_post"],
-            comment_min_likes=doc["comment_min_likes"],
-            include_images=doc["include_images"],
-            error_message=str(doc["err"]) if doc.get("err") else None
-        )
+                await cursor.execute(query_sql, [task_id])
+                row = await cursor.fetchone()
+
+                if not row:
+                    return None
+
+                return TaskDetail(
+                    task_id=row[0],
+                    keyword=row[1],
+                    site=row[2],
+                    status=TaskStatus(map_task_status(row[3])),
+                    created_at=row[4],
+                    completed_at=row[5],
+                    posts_collected=row[6] or 0,
+                    post_count=row[7],
+                    include_comments=bool(row[8]),
+                    min_likes=row[9],
+                    comments_per_post=row[10],
+                    comment_min_likes=row[11],
+                    include_images=bool(row[12]),
+                    error_message=row[13] if row[13] else None
+                )

@@ -8,7 +8,7 @@ router = APIRouter(prefix="/api/posts", tags=["posts"])
 def get_post_service(request: Request):
     """依赖注入：获取帖子服务"""
     from app.services.post_service import PostService
-    return PostService(request.app.state.mongodb)
+    return PostService(request.app.state.mysql_pool)
 
 
 @router.get("", response_model=PostList)
