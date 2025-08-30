@@ -1,31 +1,7 @@
 -- MySQL数据库表结构定义
-
 -- 创建数据库（如果不存在）
 CREATE DATABASE IF NOT EXISTS gradinsight DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
 USE gradinsight;
-
--- 用户表
-CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY COMMENT '用户ID',
-    username VARCHAR(50) UNIQUE NOT NULL COMMENT '用户名',
-    email VARCHAR(100) UNIQUE NOT NULL COMMENT '邮箱',
-    password_hash VARCHAR(255) NOT NULL COMMENT '密码哈希',
-    role ENUM('admin', 'user') DEFAULT 'user' COMMENT '用户角色',
-    is_active BOOLEAN DEFAULT TRUE COMMENT '是否激活',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-
-    INDEX idx_username (username),
-    INDEX idx_email (email),
-    INDEX idx_role (role)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
-
--- 插入默认管理员账户（密码: admin123）
-INSERT INTO users (username, email, password_hash, role) VALUES
-('admin', 'admin@gradinsight.com', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'admin')
-ON DUPLICATE KEY UPDATE username=username;
-
 -- 任务表
 CREATE TABLE IF NOT EXISTS tasks (
     id VARCHAR(64) PRIMARY KEY COMMENT '任务ID',
@@ -36,7 +12,6 @@ CREATE TABLE IF NOT EXISTS tasks (
     start_time DATETIME NOT NULL COMMENT '开始时间',
     end_time DATETIME DEFAULT NULL COMMENT '结束时间',
     error_msg TEXT DEFAULT NULL COMMENT '错误信息',
-
     -- 任务请求参数
     site INT NOT NULL COMMENT '站点类型',
     keyword VARCHAR(255) NOT NULL COMMENT '关键词',
@@ -46,16 +21,13 @@ CREATE TABLE IF NOT EXISTS tasks (
     comments_per_post BIGINT UNSIGNED DEFAULT 0 COMMENT '每个帖子的评论数',
     include_comments BOOLEAN DEFAULT FALSE COMMENT '是否包含评论',
     include_images BOOLEAN DEFAULT FALSE COMMENT '是否包含图片',
-
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-
     INDEX idx_parent_id (parent_id),
     INDEX idx_status (status),
     INDEX idx_keyword (keyword),
     INDEX idx_start_time (start_time)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='爬虫任务表';
-
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '爬虫任务表';
 -- 帖子表
 CREATE TABLE IF NOT EXISTS posts (
     id VARCHAR(128) PRIMARY KEY COMMENT '帖子ID',
@@ -66,24 +38,19 @@ CREATE TABLE IF NOT EXISTS posts (
     location VARCHAR(255) DEFAULT NULL COMMENT '位置',
     link TEXT NOT NULL COMMENT '帖子链接',
     tags JSON DEFAULT NULL COMMENT '标签数组',
-
     like_count BIGINT UNSIGNED DEFAULT 0 COMMENT '点赞数',
     comment_count BIGINT UNSIGNED DEFAULT 0 COMMENT '评论数',
     collect_count BIGINT UNSIGNED DEFAULT 0 COMMENT '收藏数',
-
     image_urls JSON DEFAULT NULL COMMENT '图片URL数组',
-
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-
     INDEX idx_task_id (task_id),
     INDEX idx_poster (poster),
     INDEX idx_post_time (post_time),
     INDEX idx_like_count (like_count),
     INDEX idx_comment_count (comment_count),
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='帖子表';
-
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '帖子表';
 -- 评论表
 CREATE TABLE IF NOT EXISTS comments (
     id VARCHAR(128) PRIMARY KEY COMMENT '评论ID',
@@ -93,12 +60,9 @@ CREATE TABLE IF NOT EXISTS comments (
     comment_time DATETIME NOT NULL COMMENT '评论时间',
     location VARCHAR(255) DEFAULT NULL COMMENT '位置',
     content TEXT NOT NULL COMMENT '评论内容',
-
     like_count BIGINT UNSIGNED DEFAULT 0 COMMENT '点赞数',
     reply_count BIGINT UNSIGNED DEFAULT 0 COMMENT '回复数',
-
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-
     INDEX idx_task_id (task_id),
     INDEX idx_post_id (post_id),
     INDEX idx_commenter (commenter),
@@ -106,4 +70,4 @@ CREATE TABLE IF NOT EXISTS comments (
     INDEX idx_like_count (like_count),
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
     FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评论表';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '评论表';
