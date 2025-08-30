@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class CrawlerServiceConfig:
     """爬虫服务配置"""
     host: str = "localhost"
-    port: int = 50051
+    port: int = 8999  # 修改为与您环境配置匹配的端口
     timeout: int = 30
     max_retries: int = 3
     retry_delay: int = 1

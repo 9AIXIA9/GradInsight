@@ -2,10 +2,9 @@ import logging
 from datetime import datetime
 from typing import Dict, Optional, Any
 
-import aiomysql
-
 from app.api.models.task import TaskStatus, TaskDetail
 from app.core.config import get_settings
+from app.db.single_connection import db_cursor
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -24,62 +23,79 @@ def map_task_status(status_code: int) -> str:
 
 
 class TaskService:
-    def __init__(self, pool: aiomysql.Pool):
-        self.pool = pool
+    def __init__(self, pool=None):
+        # pool参数保留仅为兼容性，实际不再使用
+        # 新的代码直接使用single_connection中的长连接
+        pass
 
     async def get_tasks(self, skip: int = 0, limit: int = None,
                         status: Optional[str] = None, keyword: Optional[str] = None) -> Dict[str, Any]:
         """获取任务列表"""
-        # 使用配置的默认值
-        if limit is None:
-            limit = settings.DEFAULT_PAGE_SIZE
+        try:
+            # 记录请求开始
+            start_time = datetime.now()
+            logger.info(f"开始获取任务列表: skip={skip}, limit={limit}, status={status}, keyword={keyword}")
 
-        # 限制页面大小
-        limit = min(limit, settings.MAX_PAGE_SIZE)
+            # 使用配置的默认值
+            if limit is None:
+                limit = settings.DEFAULT_PAGE_SIZE
 
-        # 构建查询条件
-        where_conditions = []
-        params = []
+            # 限制页面大小
+            limit = min(limit, settings.MAX_PAGE_SIZE)
 
-        if status:
-            # 将字符串状态转换为整数状态码
-            status_code_map = {
-                "completed": 0,
-                "failed": 1,
-                "running": 2,
-                "pending": 3,
-                "divided": 4
-            }
-            status_code = status_code_map.get(status)
-            if status_code is not None:
-                where_conditions.append("status = %s")
-                params.append(status_code)
+            # 构建查询条件
+            where_conditions = []
+            params = []
 
-        if keyword:
-            where_conditions.append("keyword LIKE %s")
-            params.append(f"%{keyword}%")
+            if status:
+                # 将字符串状态转换为整数状态码
+                status_code_map = {
+                    "completed": 0,
+                    "failed": 1,
+                    "running": 2,
+                    "pending": 3,
+                    "divided": 4
+                }
+                if status in status_code_map:
+                    where_conditions.append("status = %s")
+                    params.append(status_code_map[status])
 
-        where_clause = " WHERE " + " AND ".join(where_conditions) if where_conditions else ""
+            if keyword:
+                where_conditions.append("keyword LIKE %s")
+                params.append(f"%{keyword}%")
 
-        async with self.pool.acquire() as conn:
-            async with conn.cursor() as cursor:
+            where_clause = " WHERE " + " AND ".join(where_conditions) if where_conditions else ""
+
+            # 使用单一长连接的游标进行查询
+            async with db_cursor() as cursor:
                 # 计算总数
                 count_sql = f"SELECT COUNT(*) FROM {settings.MYSQL_TASK_TABLE}{where_clause}"
                 await cursor.execute(count_sql, params)
                 total = (await cursor.fetchone())[0]
 
-                # 查询数据
-                order_direction = "DESC" if settings.POST_SORT_ORDER == -1 else "ASC"
+                # 如果总数为0，直接返回空结果
+                if total == 0:
+                    logger.info(f"查询结果为空: {count_sql} {params}")
+                    return {
+                        "tasks": [],
+                        "total": 0,
+                        "page": skip // limit + 1 if limit > 0 else 1,
+                        "page_size": limit
+                    }
 
+                # 查询任务数据
                 query_sql = f"""
-                SELECT id, keyword, site, status, start_time, end_time, posts_collected
+                SELECT id, keyword, site, post_count, include_comments, comments_per_post, 
+                       min_likes, comment_min_likes, include_images, status, start_time, end_time, 
+                       posts_collected, error_msg
                 FROM {settings.MYSQL_TASK_TABLE}
                 {where_clause}
-                ORDER BY start_time {order_direction}
+                ORDER BY start_time DESC
                 LIMIT %s OFFSET %s
                 """
 
                 query_params = params + [limit, skip]
+
                 await cursor.execute(query_sql, query_params)
                 rows = await cursor.fetchall()
 
@@ -87,43 +103,57 @@ class TaskService:
                 tasks = []
                 for row in rows:
                     task = {
-                        "task_id": row[0],
-                        "keyword": row[1] or "",
-                        "site": row[2] or 0,
-                        "status": self._convert_status(row[3] if row[3] is not None else 3),
-                        "created_at": row[4] or datetime.now(),
-                        "completed_at": row[5],
-                        "posts_collected": row[6] or 0
+                        "id": row[0],
+                        "task_id": row[0],  # 使用id作为task_id
+                        "keyword": row[1],
+                        "site": row[2],
+                        "post_count": row[3],
+                        "include_comments": bool(row[4]),
+                        "comments_per_post": row[5],
+                        "min_likes": row[6],
+                        "comment_min_likes": row[7],
+                        "include_images": bool(row[8]),
+                        "status": map_task_status(row[9]),
+                        "created_at": row[10],  # start_time
+                        "completed_at": row[11],  # end_time
+                        "posts_collected": row[12],
+                        "error_message": row[13]  # error_msg
                     }
                     tasks.append(task)
 
-        # 返回结果
-        return {
-            "tasks": tasks,
-            "total": total,
-            "page": skip // limit + 1,
-            "page_size": limit
-        }
+            # 计算查询耗时
+            elapsed = (datetime.now() - start_time).total_seconds()
+            logger.info(f"查询任务完成: 总数={total}, 返回={len(tasks)}, 耗时={elapsed:.3f}秒")
 
-    def _convert_status(self, status_code: int) -> str:
-        """将状态码转换为字符串表示"""
-        status_map = {
-            0: "completed",
-            1: "failed",
-            2: "running",
-            3: "pending",
-            4: "divided"
-        }
-        return status_map.get(status_code, "pending")
+            # 返回结果
+            return {
+                "tasks": tasks,
+                "total": total,
+                "page": skip // limit + 1 if limit > 0 else 1,
+                "page_size": limit
+            }
+        except Exception as e:
+            logger.error(f"查询任务出错: {e}", exc_info=True)
+            # 出错时返回空结果
+            return {
+                "tasks": [],
+                "total": 0,
+                "page": 1,
+                "page_size": limit or settings.DEFAULT_PAGE_SIZE,
+                "error": "任务查询暂时不可用，请稍后再试"
+            }
 
-    async def get_task(self, task_id: str) -> Optional[TaskDetail]:
+    async def get_task_detail(self, task_id: str) -> Optional[TaskDetail]:
         """获取任务详情"""
-        async with self.pool.acquire() as conn:
-            async with conn.cursor() as cursor:
+        try:
+            logger.info(f"开始获取任务详情: task_id={task_id}")
+
+            # 使用单一长连接的游标进行查询
+            async with db_cursor() as cursor:
                 query_sql = f"""
-                SELECT id, keyword, site, status, start_time, end_time, posts_collected,
-                       post_count, include_comments, min_likes, comments_per_post, 
-                       comment_min_likes, include_images, error_msg
+                SELECT id, keyword, site, post_count, include_comments, comments_per_post,
+                       min_likes, comment_min_likes, include_images, status, start_time, end_time,
+                       posts_collected, error_msg
                 FROM {settings.MYSQL_TASK_TABLE}
                 WHERE id = %s
                 """
@@ -132,21 +162,60 @@ class TaskService:
                 row = await cursor.fetchone()
 
                 if not row:
+                    logger.warning(f"任务不存在: {task_id}")
                     return None
 
-                return TaskDetail(
-                    task_id=row[0],
+                # 转换数据格式
+                task_detail = TaskDetail(
+                    id=row[0],
+                    task_id=row[0],  # 使用id作为task_id
                     keyword=row[1],
                     site=row[2],
-                    status=TaskStatus(map_task_status(row[3])),
-                    created_at=row[4],
-                    completed_at=row[5],
-                    posts_collected=row[6] or 0,
-                    post_count=row[7],
-                    include_comments=bool(row[8]),
-                    min_likes=row[9],
-                    comments_per_post=row[10],
-                    comment_min_likes=row[11],
-                    include_images=bool(row[12]),
-                    error_message=row[13] if row[13] else None
+                    post_count=row[3],
+                    include_comments=bool(row[4]),
+                    comments_per_post=row[5],
+                    min_likes=row[6],
+                    comment_min_likes=row[7],
+                    include_images=bool(row[8]),
+                    status=map_task_status(row[9]),
+                    created_at=row[10],  # start_time
+                    completed_at=row[11],  # end_time
+                    posts_collected=row[12],
+                    error_message=row[13]  # error_msg
                 )
+
+                logger.info(f"获取任务详情成功: {task_id}, 状态: {task_detail.status}")
+                return task_detail
+
+        except Exception as e:
+            logger.error(f"获取任务详情出错: {e}", exc_info=True)
+            raise
+
+    async def delete_task(self, task_id: str) -> bool:
+        """删除任务"""
+        try:
+            logger.info(f"开始删除任务: task_id={task_id}")
+
+            async with db_cursor() as cursor:
+                delete_sql = f"DELETE FROM {settings.MYSQL_TASK_TABLE} WHERE id = %s"
+                await cursor.execute(delete_sql, [task_id])
+
+                # 检查是否有行被删除
+                if cursor.rowcount > 0:
+                    logger.info(f"任务删除成功: {task_id}")
+                    return True
+                else:
+                    logger.warning(f"任务不存在或删除失败: {task_id}")
+                    return False
+
+        except Exception as e:
+            logger.error(f"删除任务出错: {e}", exc_info=True)
+            raise
+
+    async def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """获取任务信息（简化版本）"""
+        task_detail = await self.get_task_detail(task_id)
+        if task_detail:
+            return task_detail.model_dump()
+        return None
+

@@ -1,4 +1,32 @@
 from pydantic import BaseModel, Field
+from typing import Any, Optional
+
+
+class ResponseModel(BaseModel):
+    """通用响应模型"""
+    success: bool = Field(
+        ...,
+        description="请求是否成功",
+        examples=[True, False]
+    )
+    data: Optional[Any] = Field(
+        None,
+        description="响应数据"
+    )
+    message: Optional[str] = Field(
+        None,
+        description="响应消息"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "success": True,
+                "data": {},
+                "message": "操作成功"
+            }
+        }
+    }
 
 
 class CrawlResponse(BaseModel):

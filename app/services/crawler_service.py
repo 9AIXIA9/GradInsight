@@ -52,3 +52,63 @@ class CrawlerService:
                 raise
 
         raise Exception("爬虫服务调用失败，超过最大重试次数")
+
+    async def stop_crawl(self, task_id: str) -> Dict[str, Any]:
+        """停止爬虫任务"""
+        max_attempts = 2
+        for attempt in range(max_attempts):
+            try:
+                client = self._get_client()
+                result = client.stop_crawl(task_id)
+                return result
+            except grpc.RpcError as e:
+                logger.error(f"停止爬虫任务gRPC调用错误 (尝试 {attempt + 1}/{max_attempts}): {str(e)}")
+                if self.client:
+                    try:
+                        self.client.close()
+                    except:
+                        pass
+                    self.client = None
+
+                if attempt < max_attempts - 1:
+                    time.sleep(1)
+            except Exception as e:
+                logger.error(f"停止爬虫任务失败: {str(e)}")
+                raise
+
+        raise Exception("停止爬虫任务失败，超过最大重试次数")
+
+    async def get_status(self) -> Dict[str, Any]:
+        """获取爬虫服务状态"""
+        max_attempts = 2
+        for attempt in range(max_attempts):
+            try:
+                client = self._get_client()
+                status = client.get_status()
+                return status
+            except grpc.RpcError as e:
+                logger.error(f"获取服务状态gRPC调用错误 (尝试 {attempt + 1}/{max_attempts}): {str(e)}")
+                if self.client:
+                    try:
+                        self.client.close()
+                    except:
+                        pass
+                    self.client = None
+
+                if attempt < max_attempts - 1:
+                    time.sleep(1)
+            except Exception as e:
+                logger.error(f"获取任务状态失败: {str(e)}")
+                raise
+
+        raise Exception("获取服务状态失败，超过最大重试次数")
+
+    def close(self):
+        """关闭服务连接"""
+        if self.client:
+            try:
+                self.client.close()
+            except Exception as e:
+                logger.error(f"关闭爬虫服务连接失败: {str(e)}")
+            finally:
+                self.client = None

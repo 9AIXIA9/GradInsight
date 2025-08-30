@@ -1,26 +1,46 @@
 from datetime import datetime, timedelta
 from typing import Optional
+import bcrypt
+import logging
 
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import get_settings
 
 # 获取设置
 settings = get_settings()
 
-# 密码加密上下文
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# 配置日志
+logger = logging.getLogger(__name__)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """验证密码"""
-    return pwd_context.verify(plain_password, hashed_password)
+    """验证密码 - 直接使用bcrypt"""
+    try:
+        # 确保密码和哈希都是字节格式
+        if isinstance(hashed_password, str):
+            hashed_password = hashed_password.encode('utf-8')
+        if isinstance(plain_password, str):
+            plain_password = plain_password.encode('utf-8')
+
+        return bcrypt.checkpw(plain_password, hashed_password)
+    except Exception as e:
+        logger.error(f"Password verification error: {e}")
+        return False
 
 
 def get_password_hash(password: str) -> str:
-    """生成密码哈希"""
-    return pwd_context.hash(password)
+    """生成密码哈希 - 直接使用bcrypt"""
+    try:
+        # 生成盐值
+        salt = bcrypt.gensalt()
+        # 对密码进行哈希
+        hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+        # 返回字符串格式的哈希
+        return hashed.decode('utf-8')
+    except Exception as e:
+        logger.error(f"Password hashing error: {e}")
+        raise Exception(f"密码哈希处理失败: {e}")
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:

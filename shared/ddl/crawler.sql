@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS comments (
     commenter VARCHAR(255) NOT NULL COMMENT '评论者',
     comment_time DATETIME NOT NULL COMMENT '评论时间',
     location VARCHAR(255) DEFAULT NULL COMMENT '位置',
-    content TEXT NOT NULL COMMENT '评��内容',
+    content TEXT NOT NULL COMMENT '评论内容',
 
     like_count BIGINT UNSIGNED DEFAULT 0 COMMENT '点赞数',
     reply_count BIGINT UNSIGNED DEFAULT 0 COMMENT '回复数',

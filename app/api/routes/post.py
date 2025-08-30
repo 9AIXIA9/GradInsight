@@ -7,10 +7,10 @@ from app.core.auth import get_active_user
 router = APIRouter(prefix="/api/posts", tags=["posts"])
 
 
-def get_post_service(request: Request):
+def get_post_service():
     """依赖注入：获取帖子服务"""
     from app.services.post_service import PostService
-    return PostService(request.app.state.mysql_pool)
+    return PostService()  # 移除对mysql_pool的依赖
 
 
 @router.get("", response_model=PostList)

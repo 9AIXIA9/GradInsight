@@ -6,17 +6,17 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # 应用配置
-    APP_NAME: str = Field(...)
-    APP_VERSION: str = Field(...)
-    APP_DESCRIPTION: str = Field(...)
+    APP_NAME: str = Field(default="GradInsight")
+    APP_VERSION: str = Field(default="1.0.0")
+    APP_DESCRIPTION: str = Field(default="高校数据分析平台")
     DEBUG: bool = Field(default=False)
 
     # MySQL数据库配置
-    MYSQL_HOST: str = Field(...)
-    MYSQL_PORT: int = Field(...)
-    MYSQL_USER: str = Field(...)
+    MYSQL_HOST: str = Field(default="localhost")
+    MYSQL_PORT: int = Field(default=4000)  # TiDB默认端口
+    MYSQL_USER: str = Field(default="root")
     MYSQL_PASSWORD: str = Field(default="")
-    MYSQL_DATABASE: str = Field(...)
+    MYSQL_DATABASE: str = Field(default="gradinsight")
     MYSQL_CHARSET: str = Field(default="utf8mb4")
 
     # 数据库表配置
@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     MYSQL_USER_TABLE: str = Field(default="users")
 
     # JWT认证配置
-    SECRET_KEY: str = Field(...)
+    SECRET_KEY: str = Field(default="aixia")  # 提供默认值，生产环境应该覆盖
     ALGORITHM: str = Field(default="HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30)
 
@@ -47,25 +47,24 @@ class Settings(BaseSettings):
     COMMENTS_PER_POST: int = Field(default=20)
 
     # Consul配置
-    CONSUL_HOST: str = Field(...)
-    CONSUL_PORT: int = Field(...)
-    CONSUL_SERVICE_KEY: str = Field(...)
+    CONSUL_HOST: str = Field(default="127.0.0.1")
+    CONSUL_PORT: int = Field(default=8500)
+    CONSUL_SERVICE_KEY: str = Field(default="gradinsight")
 
     # 爬虫服务配置
-    CRAWLER_HOST: str = Field(...)
-    CRAWLER_PORT: int = Field(...)
+    CRAWLER_HOST: str = Field(default="127.0.0.1")
+    CRAWLER_PORT: int = Field(default=8999)
     GRPC_TIMEOUT: int = Field(default=30)
     GRPC_MAX_RETRIES: int = Field(default=3)
 
     # CORS配置
-    CORS_ORIGINS: str = Field(default="http://localhost:3000")
+    CORS_ORIGINS: str = Field(default="http://localhost:3000,http://localhost:8000,http://127.0.0.1:8000,http://127.0.0.1:3000,http://0.0.0.0:8000")
 
-    @classmethod
-    def parse_cors_origins(cls, v):
+    def get_cors_origins(self):
         """解析CORS origins字符串为列表"""
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(',')]
-        return v
+        if isinstance(self.CORS_ORIGINS, str):
+            return [origin.strip() for origin in self.CORS_ORIGINS.split(',')]
+        return self.CORS_ORIGINS
 
     class Config:
         env_file = ".env"

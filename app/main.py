@@ -6,15 +6,19 @@ from contextlib import asynccontextmanager
 # 将当前目录添加到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse, Response
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from api.routes import crawler
 from api.routes import post
 from api.routes import task
 from api.routes import auth
+from api.routes import stats
 from core.config import get_settings
 from core.events import startup_event, shutdown_event
 
@@ -26,6 +30,8 @@ logging.basicConfig(
 
 settings = get_settings()
 
+# 调试CORS配置
+print(f"CORS Origins: {settings.get_cors_origins()}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -35,6 +41,29 @@ async def lifespan(app: FastAPI):
     # 关闭事件
     await shutdown_event(app)
 
+
+# 自定义CORS处理中间件
+class CORSDebugMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        print(f"Request method: {request.method}")
+        print(f"Request URL: {request.url}")
+        print(f"Request headers: {dict(request.headers)}")
+
+        # 处理OPTIONS预检请求
+        if request.method == "OPTIONS":
+            origin = request.headers.get("origin")
+            print(f"OPTIONS request from origin: {origin}")
+
+            response = Response()
+            response.headers["Access-Control-Allow-Origin"] = origin or "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Max-Age"] = "86400"
+            return response
+
+        response = await call_next(request)
+        return response
 
 # 创建应用
 app = FastAPI(
@@ -51,11 +80,15 @@ app = FastAPI(
 # 添加中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.get_cors_origins(),
     allow_credentials=True,  # 用于控制跨域请求是否可以携带凭据信息（如 cookies、HTTP 认证和客户端 SSL 证书）
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
+
+# 添加自定义CORS调试中间件
+app.add_middleware(CORSDebugMiddleware)
 
 # 自定义OpenAPI文档
 def custom_openapi():
@@ -83,9 +116,11 @@ def custom_openapi():
 
 app.openapi = custom_openapi
 
+# 配置模板引擎
+templates = Jinja2Templates(directory="templates")
+
 # 提供静态文件访问
 try:
-    os.makedirs("static", exist_ok=True)
     app.mount("/static", StaticFiles(directory="static"), name="static")
 except Exception as e:
     logging.error(f"静态文件目录挂载失败: {e}")
@@ -95,6 +130,20 @@ app.include_router(auth.router)  # 添加认证路由
 app.include_router(crawler.router)
 app.include_router(task.router)
 app.include_router(post.router)
+app.include_router(stats.router)  # 添加统计API路由
+
+# 添加前端路由 - 必须放在API路由之后
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/{path:path}", response_class=HTMLResponse)
+async def serve_frontend(request: Request, path: str):
+    # 对API路径的请求不处理，让它们通过API路由处理
+    if path.startswith("api/") or path.startswith("docs") or path.startswith("redoc"):
+        raise HTTPException(status_code=404)
+
+    return templates.TemplateResponse("index.html", {"request": request})
 
 if __name__ == "__main__":
     import uvicorn

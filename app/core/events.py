@@ -3,8 +3,6 @@ import logging
 from fastapi import FastAPI
 
 from app.core.config import get_settings
-from app.db.mysql import connect_to_mysql, close_mysql_connection
-from app.utils.discovery import discover_service
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -15,34 +13,34 @@ logger = logging.getLogger(__name__)
 
 async def startup_event(app: FastAPI) -> None:
     """应用启动事件"""
-    # 连接MySQL
-    app.state.mysql_pool = await connect_to_mysql()
+    # 延迟导入避免循环依赖
+    from app.db.single_connection import get_connection_pool
 
-    # 服务发现
-    crawler_host, crawler_port = await discover_service()
-    config = {
-        "host": crawler_host,
-        "port": crawler_port,
-        "timeout": settings.GRPC_TIMEOUT,
-        "max_retries": settings.GRPC_MAX_RETRIES
-    }
-    app.state.crawler_config = config
+    try:
+        # 初始化数据库连接池
+        pool = await get_connection_pool()
+        logger.info("数据库连接池已初始化")
+    except Exception as e:
+        logger.error(f"初始化数据库连接池失败: {e}")
 
-    # 创建并保存服务实例
-    from app.services.crawler_service import CrawlerService
-    app.state.crawler_service = CrawlerService(config)
+    # 发现和注册服务到Consul
+    try:
+        from app.utils.discovery import discover_service
 
-    logger.info(f"爬虫服务配置: {crawler_host}:{crawler_port}")
+        await discover_service()
+        logger.info("服务已注册到Consul")
+    except Exception as e:
+        logger.warning(f"服务注册失败: {e}")
 
 
 async def shutdown_event(app: FastAPI) -> None:
     """应用关闭事件"""
-    # 关闭数据库连接
-    await close_mysql_connection()
+    # 延迟导入避免循环依赖
+    from app.db.single_connection import close_connection_pool
 
-    # 关闭grpc连接
-    if hasattr(app.state, "crawler_service") and app.state.crawler_service and app.state.crawler_service.client:
-        try:
-            app.state.crawler_service.client.close()
-        except Exception as e:
-            logger.error(f"关闭爬虫服务连接失败: {e}")
+    try:
+        # 关闭数据库连接池
+        await close_connection_pool()
+        logger.info("数据库连接池已关闭")
+    except Exception as e:
+        logger.error(f"关闭数据库连接池失败: {e}")

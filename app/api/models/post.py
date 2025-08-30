@@ -80,7 +80,7 @@ class Post(BaseModel):
     content: str = Field(
         ...,
         description="帖子的主要内容",
-        examples=["这是帖子的详细内容...", "本文将分析计算���行业的发展趋势..."]
+        examples=["这是帖子的详细内容...", "本文将分析计算机行业的发展趋势..."]
     )
     time: datetime = Field(
         ...,

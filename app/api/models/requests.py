@@ -9,10 +9,10 @@ class CrawlRequest(BaseModel):
     )
     site: int = Field(
         default=0,
-        description="爬取站点(0:知乎, 1:微博, 2:小红书)",
-        examples=[0, 1, 2],
+        description="爬取站点(0:小红书)",
+        examples=[0],
         ge=0,
-        le=2
+        le=0
     )
     post_count: int = Field(
         default=10,
@@ -23,7 +23,7 @@ class CrawlRequest(BaseModel):
     )
     include_comments: bool = Field(
         default=True,
-        description="是否包含评论数据",
+        description="是否包含评论数",
         examples=[True, False]
     )
     min_likes: int = Field(
