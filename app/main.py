@@ -1,14 +1,22 @@
+import sys
+import os
 import logging
 from contextlib import asynccontextmanager
 
+# 将当前目录添加到Python路径
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.utils import get_openapi
 
-from app.api.routes import crawler
-from app.api.routes import post
-from app.api.routes import task
-from app.core.config import get_settings
-from app.core.events import startup_event, shutdown_event
+from api.routes import crawler
+from api.routes import post
+from api.routes import task
+from api.routes import auth
+from core.config import get_settings
+from core.events import startup_event, shutdown_event
 
 # 配置日志
 logging.basicConfig(
@@ -35,6 +43,9 @@ app = FastAPI(
     version=settings.APP_VERSION,
     debug=settings.DEBUG,
     lifespan=lifespan,
+    # 使用默认文档路径
+    docs_url="/docs",  # 默认Swagger UI路径
+    redoc_url="/redoc",  # 默认ReDoc路径
 )
 
 # 添加中间件
@@ -46,7 +57,41 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 自定义OpenAPI文档
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title=f"{settings.APP_NAME} - API文档",
+        version=settings.APP_VERSION,
+        description="GradInsight API 文档\n\n提供了用于高校数据分析的RESTful接口。\n\n**主要功能**\n\n* 用户认证与授权\n* 爬虫任务管理\n* 高校数据查询\n\n详细的API使用指南请参阅 `/docs` 页面。",
+        routes=app.routes,
+    )
+
+    # 添加安全定义
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+        }
+    }
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+
+# 提供静态文件访问
+try:
+    os.makedirs("static", exist_ok=True)
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+except Exception as e:
+    logging.error(f"静态文件目录挂载失败: {e}")
+
 # 注册路由
+app.include_router(auth.router)  # 添加认证路由
 app.include_router(crawler.router)
 app.include_router(task.router)
 app.include_router(post.router)

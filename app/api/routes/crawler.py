@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Request, Depends
 
 from app.api.models.requests import CrawlRequest
 from app.api.models.response import CrawlResponse
+from app.api.models.user import User
+from app.core.auth import get_admin_user
 from app.services.crawler_service import CrawlerService
 
 router = APIRouter(prefix="/api", tags=["crawl"])
@@ -15,9 +17,10 @@ def get_crawler_service(request: Request) -> CrawlerService:
 @router.post("/crawl", response_model=CrawlResponse)
 async def start_crawl(
         request_data: CrawlRequest,
-        service: CrawlerService = Depends(get_crawler_service)
+        service: CrawlerService = Depends(get_crawler_service),
+        current_user: User = Depends(get_admin_user)  # 只有管理员可以启动爬虫任务
 ):
-    """启动新的爬虫任务"""
+    """启动新的爬虫任务（仅管理员）"""
     try:
         result = await service.start_crawl(request_data.model_dump())
         return CrawlResponse(**result)
