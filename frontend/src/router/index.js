@@ -60,19 +60,39 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
   
+  console.log('路由守卫检查:', {
+    path: to.path,
+    hasCheckedAuth: userStore.hasCheckedAuth,
+    isAuthenticated: userStore.isAuthenticated,
+    isAdmin: userStore.isAdmin,
+    user: userStore.user
+  })
+
   // 确保用户状态已检查
   if (!userStore.hasCheckedAuth) {
-    await userStore.checkAuthStatus()
+    try {
+      await userStore.checkAuthStatus()
+    } catch (error) {
+      console.error('检查认证状态失败:', error)
+      // 即使检查失败也要继续，避免死循环
+      userStore.hasCheckedAuth = true
+    }
   }
   
   // 检查是否需要登录
   if (to.meta.requiresAuth && !userStore.isAuthenticated) {
+    console.log('需要登录，重定向到登录页')
     next('/login')
     return
   }
   
   // 检查是否需要管理员权限
   if (to.meta.requiresAdmin && !userStore.isAdmin) {
+    console.log('需要管理员权限，但用户不是管理员，重定向到首页')
+    // 添加一个提示消息
+    if (userStore.isAuthenticated) {
+      alert('您没有访问此页面的权限，需要管理员权限')
+    }
     next('/')
     return
   }
@@ -83,6 +103,7 @@ router.beforeEach(async (to, from, next) => {
     return
   }
   
+  console.log('路由守卫通过，允许访问')
   next()
 })
 

@@ -133,7 +133,7 @@ async def register_user(
         logger.error(f"注册过程中发生未知错误: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"注��失败: {str(e)}"
+            detail=f"注册失败: {str(e)}"
         )
 
 

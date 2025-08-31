@@ -119,11 +119,11 @@ export const useUserStore = defineStore('user', () => {
     isAdmin,
     
     // 方法
+    setToken,
+    setUser,
     login,
     register,
     logout,
-    checkAuthStatus,
-    setToken,
-    setUser
+    checkAuthStatus
   }
 })

@@ -3,7 +3,7 @@ import logging
 import asyncio
 from typing import Optional, Dict, Any
 
-from backend.core.config import get_settings
+from core.config import get_settings
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -72,8 +72,13 @@ async def close_mysql_connection():
         logger.info("MySQL连接池已关闭")
 
 
-async def get_mysql_connection(retry_count=0, max_retries=2):
+async def get_mysql_connection(retry_count=0, max_retries=None):
     """获取MySQL连接，支持自动重试"""
+    if max_retries is None:
+        from core.config import get_settings
+        settings = get_settings()
+        max_retries = settings.MYSQL_MAX_RETRIES
+    
     try:
         pool = await connect_to_mysql()
 
@@ -106,7 +111,7 @@ async def get_mysql_connection(retry_count=0, max_retries=2):
         if retry_count < max_retries:
             logger.warning(f"获取MySQL连接超时，正在重试... ({retry_count + 1}/{max_retries})")
             # 延迟重试，避免立即重试导致的问题
-            await asyncio.sleep(1.0 * (retry_count + 1))
+            await asyncio.sleep(settings.MYSQL_RETRY_DELAY * (retry_count + 1))
             return await get_mysql_connection(retry_count + 1, max_retries)
         else:
             logger.error("获取MySQL连接超时，重试次数已达上限")
@@ -117,7 +122,7 @@ async def get_mysql_connection(retry_count=0, max_retries=2):
         logger.error(f"获取MySQL连接失败: {e}")
         if retry_count < max_retries:
             logger.warning(f"正在重试获取MySQL连接... ({retry_count + 1}/{max_retries})")
-            await asyncio.sleep(1.0 * (retry_count + 1))
+            await asyncio.sleep(settings.MYSQL_RETRY_DELAY * (retry_count + 1))
             return await get_mysql_connection(retry_count + 1, max_retries)
         raise
 

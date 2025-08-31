@@ -1,11 +1,11 @@
-import json
+import asyncio
+from typing import List, Dict, Any, Optional, Tuple
 import logging
 from datetime import datetime
-from typing import Dict, Any, Optional, List
-
-from backend.api.models.post import Post, Comment
-from backend.core.config import get_settings
-from backend.db.single_connection import db_cursor, execute_query
+import json
+from api.models.post import Post, Comment
+from core.config import get_settings
+from db.single_connection import db_cursor, execute_query
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -42,9 +42,9 @@ class PostService:
                 params.append(task_id)
 
             if keyword:
-                where_conditions.append("(title LIKE %s OR poster LIKE %s)")
+                where_conditions.append("(title LIKE %s OR content LIKE %s OR poster LIKE %s)")
                 keyword_pattern = f"%{keyword}%"
-                params.extend([keyword_pattern, keyword_pattern])
+                params.extend([keyword_pattern, keyword_pattern, keyword_pattern])
 
             if tag:
                 where_conditions.append("JSON_CONTAINS(tags, %s)")
@@ -68,7 +68,7 @@ class PostService:
                 if total == 0:
                     logger.info(f"查询结果为空: {count_sql} {params}")
                     return {
-                        "posts": [],
+                        "posts": [],  # 改为posts以匹配模型
                         "total": 0,
                         "page": skip // limit + 1 if limit > 0 else 1,
                         "page_size": limit
@@ -77,8 +77,8 @@ class PostService:
                 # 查询帖子数据
                 order_direction = "DESC" if settings.POST_SORT_ORDER == -1 else "ASC"
                 query_sql = f"""
-                SELECT id, task_id, title, poster, post_time as time, 
-                       like_count, comment_count, collect_count, location, tags, image_urls
+                SELECT id, task_id, title, content, poster, post_time as time, 
+                       like_count, comment_count, collect_count, location, tags, image_urls, link
                 FROM {settings.MYSQL_POST_TABLE}
                 {where_clause}
                 ORDER BY {settings.POST_SORT_FIELD} {order_direction}
@@ -94,7 +94,7 @@ class PostService:
                 if not rows:
                     logger.warning(f"查询返回0行结果，但总数为{total}: {query_sql} {query_params}")
                     return {
-                        "posts": [],
+                        "posts": [],  # 改为posts以匹配模型
                         "total": total,
                         "page": skip // limit + 1 if limit > 0 else 1,
                         "page_size": limit
@@ -107,30 +107,31 @@ class PostService:
                 for row in rows:
                     # 解析JSON字段
                     try:
-                        tags = json.loads(row[9]) if row[9] else []
+                        tags = json.loads(row[10]) if row[10] else []
                     except json.JSONDecodeError:
-                        logger.warning(f"帖子 {row[0]} 的标签JSON解析失败: {row[9]}")
+                        logger.warning(f"帖子 {row[0]} 的标签JSON解析失败: {row[10]}")
                         tags = []
 
                     try:
-                        image_urls = json.loads(row[10]) if row[10] else []
+                        image_urls = json.loads(row[11]) if row[11] else []
                     except json.JSONDecodeError:
-                        logger.warning(f"帖子 {row[0]} 的图片URL JSON解析失败: {row[10]}")
+                        logger.warning(f"帖子 {row[0]} 的图片URL JSON解析失败: {row[11]}")
                         image_urls = []
 
                     post = Post(
                         id=row[0],
                         task_id=row[1],
                         title=row[2] or "",
-                        poster=row[3] or "",
-                        content="",  # MySQL表中没有content字段，设为空字符串
-                        time=row[4] or datetime.now(),
-                        like_count=row[5] or 0,
-                        comment_count=row[6] or 0,
-                        collect_count=row[7] or 0,
-                        location=row[8],
+                        content=row[3] or "",
+                        poster=row[4] or "",
+                        time=row[5] or datetime.now(),
+                        like_count=row[6] or 0,
+                        comment_count=row[7] or 0,
+                        collect_count=row[8] or 0,
+                        location=row[9],
                         tags=tags,
                         image_urls=image_urls,
+                        link=row[12],  # 添加link字段
                         comments=[]
                     )
                     posts.append(post)
@@ -146,7 +147,7 @@ class PostService:
 
             # 返回结果
             return {
-                "posts": posts,
+                "posts": posts,  # 改回posts以匹配PostList模型
                 "total": total,
                 "page": skip // limit + 1 if limit > 0 else 1,
                 "page_size": limit
@@ -156,7 +157,7 @@ class PostService:
             logger.error(f"查询帖子出错: {e}", exc_info=True)
             # 出错时返回空结果，避免前端崩溃
             return {
-                "posts": [],
+                "posts": [],  # 改回posts
                 "total": 0,
                 "page": 1,
                 "page_size": limit or settings.DEFAULT_PAGE_SIZE,

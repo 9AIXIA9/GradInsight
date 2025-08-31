@@ -2,10 +2,10 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from backend.api.models.user import User, UserCreateAdmin, UserRole
-from backend.core.config import get_settings
-from backend.utils.auth import get_password_hash, verify_password
-from backend.db.single_connection import db_cursor
+from api.models.user import User, UserCreateAdmin, UserRole
+from core.config import get_settings
+from utils.auth import get_password_hash, verify_password
+from db.single_connection import db_cursor
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

@@ -4,9 +4,9 @@
       <div class="card shadow">
         <div class="card-body p-5">
           <div class="text-center mb-4">
-            <img src="@/assets/img/logo.svg" alt="GradInsight Logo" height="50" class="mb-3">
+            <img src="@/assets/img/logo.svg" :alt="`${appConfig.name} Logo`" height="50" class="mb-3">
             <h3 class="fw-bold">用户登录</h3>
-            <p class="text-muted">登录到 GradInsight 平台</p>
+            <p class="text-muted">登录到 {{ appConfig.name }} 平台</p>
           </div>
 
           <!-- 错误提示 -->
@@ -109,6 +109,11 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const userStore = useUserStore()
+
+// 应用配置
+const appConfig = {
+  name: import.meta.env.VITE_APP_NAME || 'GradInsight'
+}
 
 // 响应式数据
 const loading = ref(false)

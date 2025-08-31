@@ -82,6 +82,11 @@ class Post(BaseModel):
         description="帖子的主要内容",
         examples=["这是帖子的详细内容...", "本文将分析计算机行业的发展趋势..."]
     )
+    link: Optional[str] = Field(
+        None,
+        description="帖子的原文链接",
+        examples=["https://www.xiaohongshu.com/explore/12345", "https://example.com/post/67890"]
+    )
     time: datetime = Field(
         ...,
         description="帖子发布时间",
@@ -131,6 +136,7 @@ class Post(BaseModel):
                 "title": "南昌大学2025年计算机专业招生情况分析",
                 "poster": "高校资讯",
                 "content": "南昌大学计算机科学与技术专业2025年计划招收本科生300人，较去年增加50人...",
+                "link": "https://www.xiaohongshu.com/explore/12345",
                 "time": "2025-08-10T10:00:00",
                 "like_count": 156,
                 "comment_count": 25,
@@ -186,6 +192,7 @@ class PostList(BaseModel):
                         "title": "南昌大学2025年计算机专业招生情况分析",
                         "poster": "高校资讯",
                         "content": "南昌大学计算机科学与技术专业2025年计划招收本科生300人...",
+                        "link": "https://www.xiaohongshu.com/explore/12345",
                         "time": "2025-08-10T10:00:00",
                         "like_count": 156,
                         "comment_count": 25,
@@ -211,6 +218,7 @@ class PostList(BaseModel):
                         "title": "计算机专业就业前景分析",
                         "poster": "就业指导中心",
                         "content": "随着人工智能的发展，计算机专业毕业生的就业前景更加广阔...",
+                        "link": "https://www.xiaohongshu.com/explore/67891",
                         "time": "2025-08-09T16:20:00",
                         "like_count": 203,
                         "comment_count": 30,

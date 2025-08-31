@@ -8,15 +8,19 @@ from db.single_connection import db_cursor
 from core.auth import get_current_user
 from api.models.user import User
 from api.models.response import ResponseModel
+from core.config import get_settings
 import json
 import logging
 
 router = APIRouter(prefix="/api/stats", tags=["statistics"])
 logger = logging.getLogger(__name__)
 
+# 获取配���实例
+settings = get_settings()
+
 @router.get("/overview", response_model=ResponseModel)
 async def get_stats_overview() -> ResponseModel:
-    """获取首页统计���据概览 - 公开访问"""
+    """获取首页统计数据概览 - 公开访问"""
     try:
         logger.info("开始获取统计数据概览")
 
@@ -56,10 +60,10 @@ async def get_stats_overview() -> ResponseModel:
                     return "0"
 
             # 使用真实数据或合理的默认值
-            display_posts = format_number(total_posts) if total_posts > 100 else f"{total_posts + 8500}"
-            display_comments = format_number(total_comments) if total_comments > 500 else f"{total_comments + 42000}"
-            display_schools = str(max(total_schools, 285))
-            display_tasks = str(max(total_tasks, 96))
+            display_posts = format_number(total_posts) if total_posts > 100 else f"{total_posts + settings.STATS_DEFAULT_POSTS_BOOST}"
+            display_comments = format_number(total_comments) if total_comments > 500 else f"{total_comments + settings.STATS_DEFAULT_COMMENTS_BOOST}"
+            display_schools = str(max(total_schools, settings.STATS_DEFAULT_SCHOOLS_COUNT))
+            display_tasks = str(max(total_tasks, settings.STATS_DEFAULT_TASKS_COUNT))
 
             return ResponseModel(
                 success=True,
@@ -92,7 +96,7 @@ async def get_hot_schools(limit: int = 5) -> ResponseModel:
 
         # 使用正确的单连接方式
         async with db_cursor() as cursor:
-            # 获取最近7天的热门关键词（模拟高校数据）
+            # 获取最近7天的热门关键词（模拟高校��据）
             seven_days_ago = datetime.now() - timedelta(days=7)
 
             query = """

@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS posts (
     id VARCHAR(128) PRIMARY KEY COMMENT '帖子ID',
     task_id VARCHAR(64) NOT NULL COMMENT '任务ID',
     title TEXT NOT NULL COMMENT '帖子标题',
+    content LONGTEXT NOT NULL COMMENT '帖子内容',
     poster VARCHAR(255) NOT NULL COMMENT '发帖人',
     post_time DATETIME NOT NULL COMMENT '发帖时间',
     location VARCHAR(255) DEFAULT NULL COMMENT '位置',

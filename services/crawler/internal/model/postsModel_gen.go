@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	
+
 	"github.com/zeromicro/go-zero/core/stores/builder"
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlc"
@@ -44,6 +44,7 @@ type (
 		Id           string         `db:"id"`            // 帖子ID
 		TaskId       string         `db:"task_id"`       // 任务ID
 		Title        string         `db:"title"`         // 帖子标题
+		Content      string         `db:"content"`       // 帖子内容
 		Poster       string         `db:"poster"`        // 发帖人
 		PostTime     time.Time      `db:"post_time"`     // 发帖时间
 		Location     sql.NullString `db:"location"`      // 位置
@@ -94,8 +95,8 @@ func (m *defaultPostsModel) FindOne(ctx context.Context, id string) (*Posts, err
 func (m *defaultPostsModel) Insert(ctx context.Context, data *Posts) (sql.Result, error) {
 	gradinsightPostsIdKey := fmt.Sprintf("%s%v", cacheGradinsightPostsIdPrefix, data.Id)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, postsRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.Id, data.TaskId, data.Title, data.Poster, data.PostTime, data.Location, data.Link, data.Tags, data.LikeCount, data.CommentCount, data.CollectCount, data.ImageUrls)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, postsRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.Id, data.TaskId, data.Title, data.Content, data.Poster, data.PostTime, data.Location, data.Link, data.Tags, data.LikeCount, data.CommentCount, data.CollectCount, data.ImageUrls)
 	}, gradinsightPostsIdKey)
 	return ret, err
 }
@@ -104,7 +105,7 @@ func (m *defaultPostsModel) Update(ctx context.Context, data *Posts) error {
 	gradinsightPostsIdKey := fmt.Sprintf("%s%v", cacheGradinsightPostsIdPrefix, data.Id)
 	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, postsRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, data.TaskId, data.Title, data.Poster, data.PostTime, data.Location, data.Link, data.Tags, data.LikeCount, data.CommentCount, data.CollectCount, data.ImageUrls, data.Id)
+		return conn.ExecCtx(ctx, query, data.TaskId, data.Title, data.Content, data.Poster, data.PostTime, data.Location, data.Link, data.Tags, data.LikeCount, data.CommentCount, data.CollectCount, data.ImageUrls, data.Id)
 	}, gradinsightPostsIdKey)
 	return err
 }

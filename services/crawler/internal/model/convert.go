@@ -12,7 +12,7 @@ func TaskFromDomain(task *domain.Task) *Tasks {
 	if task == nil {
 		return nil
 	}
-	
+
 	// 处理错误消息
 	var errMsg sql.NullString
 	if task.Err != nil {
@@ -21,7 +21,7 @@ func TaskFromDomain(task *domain.Task) *Tasks {
 			Valid:  true,
 		}
 	}
-	
+
 	// 处理父ID
 	var parentID sql.NullString
 	if task.ParentID != "" {
@@ -30,7 +30,7 @@ func TaskFromDomain(task *domain.Task) *Tasks {
 			Valid:  true,
 		}
 	}
-	
+
 	// 处理结束时间
 	var endTime sql.NullTime
 	if !task.EndTime.IsZero() {
@@ -39,7 +39,7 @@ func TaskFromDomain(task *domain.Task) *Tasks {
 			Valid: true,
 		}
 	}
-	
+
 	return &Tasks{
 		Id:              string(task.ID),
 		ParentId:        parentID,
@@ -65,7 +65,7 @@ func PostFromDomain(post *domain.Post) *Posts {
 	if post == nil {
 		return nil
 	}
-	
+
 	// 处理位置
 	var location sql.NullString
 	if post.Location != "" {
@@ -74,7 +74,7 @@ func PostFromDomain(post *domain.Post) *Posts {
 			Valid:  true,
 		}
 	}
-	
+
 	// 处理标签
 	var tags sql.NullString
 	if len(post.Tags) > 0 {
@@ -84,7 +84,7 @@ func PostFromDomain(post *domain.Post) *Posts {
 			Valid:  true,
 		}
 	}
-	
+
 	// 处理图片URL
 	var imageUrls sql.NullString
 	if len(post.ImageURLs) > 0 {
@@ -94,11 +94,12 @@ func PostFromDomain(post *domain.Post) *Posts {
 			Valid:  true,
 		}
 	}
-	
+
 	return &Posts{
 		Id:           post.ID,
 		TaskId:       string(post.TaskID),
 		Title:        post.Title,
+		Content:      post.Content, // 添加Content字段映射
 		Poster:       post.Poster,
 		PostTime:     post.Time,
 		Location:     location,
@@ -118,7 +119,7 @@ func CommentFromDomain(comment *domain.Comment) *Comments {
 	if comment == nil {
 		return nil
 	}
-	
+
 	// 处理位置
 	var location sql.NullString
 	if comment.Location != "" {
@@ -127,7 +128,7 @@ func CommentFromDomain(comment *domain.Comment) *Comments {
 			Valid:  true,
 		}
 	}
-	
+
 	return &Comments{
 		Id:          comment.ID,
 		TaskId:      string(comment.TaskID),
@@ -155,7 +156,7 @@ func TagsFromJSON(tagsJSON sql.NullString) []string {
 	if !tagsJSON.Valid {
 		return nil
 	}
-	
+
 	var tags []string
 	err := json.Unmarshal([]byte(tagsJSON.String), &tags)
 	if err != nil {
@@ -169,7 +170,7 @@ func ImageURLsFromJSON(urlsJSON sql.NullString) []string {
 	if !urlsJSON.Valid {
 		return nil
 	}
-	
+
 	var urls []string
 	err := json.Unmarshal([]byte(urlsJSON.String), &urls)
 	if err != nil {

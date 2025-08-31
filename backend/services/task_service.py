@@ -1,25 +1,39 @@
+import asyncio
+from typing import List, Dict, Any, Optional
 import logging
 from datetime import datetime
-from typing import Dict, Optional, Any
-
-from backend.api.models.task import TaskStatus, TaskDetail
-from backend.core.config import get_settings
-from backend.db.single_connection import db_cursor
+from api.models.task import TaskStatus, TaskDetail
+from core.config import get_settings
+from db.single_connection import db_cursor
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
 def map_task_status(status_code: int) -> str:
-    """将整数状态码映射到字符串状态"""
+    """将数据库中的数字状态码映射为字符串状态"""
+    # 数据库数字状态码 -> 字符串状态映射
+    # 数据库：0=completed, 1=failed, 2=running, 3=pending, 4=divided
     status_map = {
-        0: "completed",
-        1: "failed",
-        2: "running",
-        3: "pending",
-        4: "divided"
+        0: "completed",  # 已完成
+        1: "failed",     # 失败
+        2: "running",    # 运行中
+        3: "pending",    # 等待中
+        4: "divided"     # 已分割
     }
-    return status_map.get(status_code, "unknown")
+    return status_map.get(status_code, "failed")  # 默认为failed
+
+
+def map_site_code(site_code: int) -> str:
+    """将数据库中的数字站点码映射为字符串"""
+    # 数��库数字站点码 -> 字符串站点映射
+    # 数据库：0=小红书, 1=微博, 2=知乎
+    site_map = {
+        0: "xiaohongshu",  # 小红书
+        1: "weibo",        # 微博
+        2: "zhihu"         # 知乎
+    }
+    return site_map.get(site_code, "xiaohongshu")  # 默认为小红书
 
 
 class TaskService:
@@ -48,7 +62,7 @@ class TaskService:
             params = []
 
             if status:
-                # 将字符串状态转换为整数状态码
+                # 将字符串状态转换为整数状���码
                 status_code_map = {
                     "completed": 0,
                     "failed": 1,
@@ -73,11 +87,11 @@ class TaskService:
                 await cursor.execute(count_sql, params)
                 total = (await cursor.fetchone())[0]
 
-                # 如果总数为0，直接返回空结果
+                # ��果总数为0，直接返回空结果
                 if total == 0:
                     logger.info(f"查询结果为空: {count_sql} {params}")
                     return {
-                        "tasks": [],
+                        "tasks": [],  # API模型期望的是tasks字段
                         "total": 0,
                         "page": skip // limit + 1 if limit > 0 else 1,
                         "page_size": limit
@@ -106,14 +120,14 @@ class TaskService:
                         "id": row[0],
                         "task_id": row[0],  # 使用id作为task_id
                         "keyword": row[1],
-                        "site": row[2],
+                        "site": map_site_code(row[2]),  # 转换站点码为字符串
                         "post_count": row[3],
                         "include_comments": bool(row[4]),
                         "comments_per_post": row[5],
                         "min_likes": row[6],
                         "comment_min_likes": row[7],
                         "include_images": bool(row[8]),
-                        "status": map_task_status(row[9]),
+                        "status": row[9],  # 直接返回数字状态码，不转换
                         "created_at": row[10],  # start_time
                         "completed_at": row[11],  # end_time
                         "posts_collected": row[12],
@@ -125,9 +139,9 @@ class TaskService:
             elapsed = (datetime.now() - start_time).total_seconds()
             logger.info(f"查询任务完成: 总数={total}, 返回={len(tasks)}, 耗时={elapsed:.3f}秒")
 
-            # 返回结果
+            # 返回结果 - 修复数据格式以匹配API模型期望
             return {
-                "tasks": tasks,
+                "tasks": tasks,  # API模型期望的是tasks字段，不是items
                 "total": total,
                 "page": skip // limit + 1 if limit > 0 else 1,
                 "page_size": limit
@@ -136,7 +150,7 @@ class TaskService:
             logger.error(f"查询任务出错: {e}", exc_info=True)
             # 出错时返回空结果
             return {
-                "tasks": [],
+                "tasks": [],  # API模型期望的是tasks字段
                 "total": 0,
                 "page": 1,
                 "page_size": limit or settings.DEFAULT_PAGE_SIZE,
@@ -170,14 +184,14 @@ class TaskService:
                     id=row[0],
                     task_id=row[0],  # 使用id作为task_id
                     keyword=row[1],
-                    site=row[2],
+                    site=map_site_code(row[2]),  # 转换站点码为字符串
                     post_count=row[3],
                     include_comments=bool(row[4]),
                     comments_per_post=row[5],
                     min_likes=row[6],
                     comment_min_likes=row[7],
                     include_images=bool(row[8]),
-                    status=map_task_status(row[9]),
+                    status=row[9],  # 保持数字状态码与前端模型一致
                     created_at=row[10],  # start_time
                     completed_at=row[11],  # end_time
                     posts_collected=row[12],
@@ -192,7 +206,7 @@ class TaskService:
             raise
 
     async def delete_task(self, task_id: str) -> bool:
-        """删除任务"""
+        """���除任务"""
         try:
             logger.info(f"开始删除任务: task_id={task_id}")
 
@@ -218,4 +232,3 @@ class TaskService:
         if task_detail:
             return task_detail.model_dump()
         return None
-

@@ -1,9 +1,7 @@
-import logging
-from typing import Tuple
-
 import consul
-
-from backend.core.config import get_settings
+import logging
+from typing import Dict, Any, Optional, List, Tuple
+from core.config import get_settings
 
 settings = get_settings()
 logger = logging.getLogger(__name__)

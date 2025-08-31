@@ -1,3 +1,23 @@
+"""
+内容分析服务
+
+提供帖子和评论的内容分析功能，包括：
+- 情感分析
+- 关键词提取
+- 学校维度分析
+- 标签统计
+"""
+
+from api.models.content_analysis import (
+    AnalysisType, AnalysisRequest, ContentAnalysisResult,
+    TopicSummary, ContentCluster, KeywordFrequency,
+    SentimentAnalysis, UniversityMention, MajorAnalysis
+)
+from api.models.post import Post
+from services.post_service import PostService
+from db.single_connection import db_cursor
+from core.config import get_settings
+
 import json
 import logging
 import asyncio
@@ -6,16 +26,6 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional, Set
 from collections import Counter, defaultdict
 import uuid
-
-from backend.api.models.content_analysis import (
-    ContentAnalysisResult, TopicSummary, ContentCluster, 
-    KeywordFrequency, SentimentAnalysis, UniversityMention, 
-    MajorAnalysis, AnalysisType, AnalysisRequest
-)
-from backend.api.models.post import Post
-from backend.services.post_service import PostService
-from backend.db.single_connection import db_cursor
-from backend.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -37,7 +47,7 @@ class ContentAnalysisService:
             "北京师范大学", "南开大学", "武汉大学", "华东师范大学"
         }
         
-        # 预定义的专业关键词
+        # 预定义的专业关��词
         self.major_keywords = {
             "计算机科学与技术", "软件工程", "人工智能", "数据科学", "网络工程",
             "信息安全", "电子信息工程", "通信工程", "自动化", "机械工程",
@@ -231,8 +241,8 @@ class ContentAnalysisService:
 
     async def _analyze_university_mentions(self, posts: List[Post]) -> List[UniversityMention]:
         """分析高校提及情况"""
-        logger.info("开始分析高校提及")
-        
+        logger.info("开始分析��校提及")
+
         university_data = defaultdict(lambda: {
             'count': 0, 
             'posts': [], 

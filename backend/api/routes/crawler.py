@@ -3,12 +3,13 @@ from typing import Optional
 
 from api.models.requests import CrawlRequest
 from api.models.response import CrawlResponse
-from api.models.task import TaskList, TaskDetail
+from api.models.task import TaskListResponse, TaskDetail
 from api.models.user import User
 from core.auth import get_admin_user
 from core.config import get_settings
 from services.crawler_service import CrawlerService
 from services.task_service import TaskService
+from utils.consul_discovery import ConsulServiceDiscovery, ConsulConfig
 
 router = APIRouter(prefix="/api/crawler", tags=["crawler-management"])
 
@@ -22,22 +23,32 @@ def get_crawler_service() -> CrawlerService:
     config = {
         "host": settings.CRAWLER_HOST,
         "port": settings.CRAWLER_PORT,
-        "timeout": getattr(settings, 'GRPC_TIMEOUT', 30),
-        "max_retries": getattr(settings, 'GRPC_MAX_RETRIES', 3)
+        "timeout": settings.GRPC_TIMEOUT,
+        "max_retries": settings.GRPC_MAX_RETRIES
     }
     return CrawlerService(config)
 
 
 def get_task_service() -> TaskService:
     """依赖注入：获取任务服务"""
-    return TaskService()  # 移除对连接池的依赖
+    return TaskService()
+
+
+def get_consul_discovery() -> ConsulServiceDiscovery:
+    """依赖注入：获取Consul服务发现"""
+    consul_config = ConsulConfig(
+        host=settings.CONSUL_HOST,
+        port=settings.CONSUL_PORT,
+        timeout=settings.CONSUL_TIMEOUT
+    )
+    return ConsulServiceDiscovery(consul_config)
 
 
 @router.post("/start", response_model=CrawlResponse, summary="启动爬虫任务")
 async def start_crawl(
     request_data: CrawlRequest,
     crawler_service: CrawlerService = Depends(get_crawler_service),
-    current_user: User = Depends(get_admin_user)  # 只有管理员可以启动爬虫任务
+    current_user: User = Depends(get_admin_user)  # 只有管理��可以启动爬虫任务
 ):
     """
     启动新的爬虫任务（仅管理员）
@@ -52,7 +63,7 @@ async def start_crawl(
         raise HTTPException(status_code=500, detail=f"爬虫服务调用失败: {str(e)}")
 
 
-@router.get("/tasks", response_model=TaskList, summary="获取爬虫任务列表")
+@router.get("/tasks", response_model=TaskListResponse, summary="获取爬虫任务列表")
 async def list_tasks(
     skip: int = Query(0, ge=0, description="跳过的记录数"),
     limit: int = Query(20, ge=1, le=100, description="返回的记录数量"),
@@ -116,38 +127,21 @@ async def delete_task(
         raise HTTPException(status_code=500, detail=f"删除任务失败: {str(e)}")
 
 
-@router.post("/tasks/{task_id}/stop", summary="停止爬虫任务")
-async def stop_task(
-    task_id: str,
-    crawler_service: CrawlerService = Depends(get_crawler_service),
-    current_user: User = Depends(get_admin_user)  # 只有管理员才能停止任务
-):
-    """
-    停止正在运行的爬虫任务（仅限管理员）
-
-    此接口用于停止指定的爬虫任务。
-    普通用户无权访问此接口，仅限管理员使用。
-    """
-    try:
-        result = await crawler_service.stop_crawl(task_id)
-        return {"message": "任务停止成功", "task_id": task_id, "result": result}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"停止任务失败: {str(e)}")
-
-
 @router.get("/status", summary="获取爬虫服务状态")
 async def get_crawler_status(
-    crawler_service: CrawlerService = Depends(get_crawler_service),
+    consul_discovery: ConsulServiceDiscovery = Depends(get_consul_discovery),
     current_user: User = Depends(get_admin_user)  # 只有管理员才能查看服务状态
 ):
     """
     获取爬虫服务状态（仅限管理员）
 
-    此接口用于获取爬虫服务的运行状态信息。
+    此接口通过Consul服务发现来获取爬虫微服务的运行状态信息。
     普通用户无权访问此接口，仅限管理员使用。
     """
     try:
-        status = await crawler_service.get_status()
+        # 通过Consul查询爬虫服务状态
+        service_name = settings.CRAWLER_SERVICE_NAME
+        status = consul_discovery.get_service_health(service_name)
         return status
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取服务状态失败: {str(e)}")

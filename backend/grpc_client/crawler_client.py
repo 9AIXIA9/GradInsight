@@ -8,6 +8,7 @@ import grpc
 # 导入生成的protobuf代码
 from .proto import crawler_pb2
 from .proto import crawler_pb2_grpc
+from core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -15,11 +16,20 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CrawlerServiceConfig:
     """爬虫服务配置"""
-    host: str = "localhost"
-    port: int = 8999  # 修改为与您环境配置匹配的端口
-    timeout: int = 30
-    max_retries: int = 3
-    retry_delay: int = 1
+    host: Optional[str] = None
+    port: Optional[int] = None
+    timeout: Optional[int] = None
+    max_retries: Optional[int] = None
+    retry_delay: Optional[int] = None
+
+    def __post_init__(self):
+        """在初始化后设置默认值"""
+        settings = get_settings()
+        self.host = self.host or settings.CRAWLER_HOST
+        self.port = self.port or settings.CRAWLER_PORT
+        self.timeout = self.timeout or settings.GRPC_TIMEOUT
+        self.max_retries = self.max_retries or settings.GRPC_MAX_RETRIES
+        self.retry_delay = self.retry_delay or settings.GRPC_RETRY_DELAY
 
     @property
     def address(self) -> str:
@@ -54,11 +64,12 @@ class CrawlerClient:
                 # 使用正确的格式和选项
                 address = self.config.address.replace('localhost', '127.0.0.1')
                 # 配置环境
+                settings = get_settings()
                 options = [
                     ('grpc.so_reuseport', 0),
                     ('grpc.use_local_subchannel_pool', 1),
-                    ('grpc.keepalive_time_ms', 30000),
-                    ('grpc.keepalive_timeout_ms', 10000),
+                    ('grpc.keepalive_time_ms', settings.GRPC_KEEPALIVE_TIME_MS),
+                    ('grpc.keepalive_timeout_ms', settings.GRPC_KEEPALIVE_TIMEOUT_MS),
                     ('grpc.keepalive_permit_without_calls', 1)
                 ]
                 self._channel = grpc.insecure_channel(address)

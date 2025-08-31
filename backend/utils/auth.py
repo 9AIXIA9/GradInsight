@@ -1,17 +1,20 @@
-from datetime import datetime, timedelta
-from typing import Optional
-import bcrypt
+import time
 import logging
-
+import bcrypt
+from typing import Optional, Dict, Any
+from datetime import datetime, timedelta
 from jose import JWTError, jwt
-
-from backend.core.config import get_settings
+from passlib.context import CryptContext
+from core.config import get_settings
 
 # 获取设置
 settings = get_settings()
 
 # 配置日志
 logger = logging.getLogger(__name__)
+
+# 初始化密码上下文
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

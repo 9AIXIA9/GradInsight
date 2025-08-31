@@ -3,7 +3,7 @@ import axios from 'axios'
 // 创建axios实例
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
-  timeout: 30000,
+  timeout: parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -34,7 +34,7 @@ apiClient.interceptors.response.use(
       return data
     }
 
-    // 如果是直接的数据对象（如用户注册返回的用户对���），包装成统一格式
+    // 如果是直接的数据对象（如用户注册返回的用户对象），包装成统一格式
     if (response.status >= 200 && response.status < 300) {
       return {
         success: true,
