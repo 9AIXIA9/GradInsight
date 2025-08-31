@@ -246,3 +246,74 @@ async def get_task_summary(
             status_code=500,
             detail=f"生成任务摘要失败: {str(e)}"
         )
+
+
+@router.get("/{analysis_id}", response_model=ResponseModel)
+async def get_analysis_detail(
+    analysis_id: str,
+    current_user: User = Depends(get_current_user),
+    analysis_service: ContentAnalysisService = Depends(get_analysis_service)
+) -> ResponseModel:
+    """
+    获取分析详情
+    
+    根据分析ID获取完整的分析结果详情
+    """
+    try:
+        result = await analysis_service.get_analysis_by_id(analysis_id)
+        
+        if not result:
+            raise HTTPException(
+                status_code=404,
+                detail="分析结果不存在"
+            )
+        
+        return ResponseModel(
+            success=True,
+            message="获取分析详情成功",
+            data=result
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取分析详情失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取分析详情失败: {str(e)}"
+        )
+
+
+@router.delete("/{analysis_id}", response_model=ResponseModel)
+async def delete_analysis(
+    analysis_id: str,
+    current_user: User = Depends(get_current_user),
+    analysis_service: ContentAnalysisService = Depends(get_analysis_service)
+) -> ResponseModel:
+    """
+    删除分析结果
+    
+    删除指定的分析结果及其所有相关数据
+    """
+    try:
+        success = await analysis_service.delete_analysis(analysis_id)
+        
+        if not success:
+            raise HTTPException(
+                status_code=404,
+                detail="分析结果不存在"
+            )
+        
+        return ResponseModel(
+            success=True,
+            message="分析结果已删除"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"删除分析结果失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"删除分析结果失败: {str(e)}"
+        )

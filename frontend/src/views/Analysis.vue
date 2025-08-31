@@ -160,7 +160,7 @@
 
     <!-- 快速分析按钮 -->
     <div class="row mb-4">
-      <div class="col-md-4">
+      <div class="col-md-3">
         <div class="card text-center border-primary">
           <div class="card-body">
             <i class="bi bi-lightning-charge display-4 text-primary mb-3"></i>
@@ -172,7 +172,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-3">
         <div class="card text-center border-success">
           <div class="card-body">
             <i class="bi bi-building display-4 text-success mb-3"></i>
@@ -184,7 +184,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-3">
         <div class="card text-center border-info">
           <div class="card-body">
             <i class="bi bi-mortarboard display-4 text-info mb-3"></i>
@@ -192,6 +192,18 @@
             <p class="text-muted small">分析不同专业的讨论热度和趋势</p>
             <button class="btn btn-info" @click="majorAnalysis" :disabled="analyzing">
               <i class="bi bi-graph-up me-1"></i>专业分析
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center border-warning">
+          <div class="card-body">
+            <i class="bi bi-diagram-3 display-4 text-warning mb-3"></i>
+            <h5>完整分析</h5>
+            <p class="text-muted small">包含所有分析类型的深度分析</p>
+            <button class="btn btn-warning" @click="comprehensiveAnalysis" :disabled="analyzing">
+              <i class="bi bi-stack me-1"></i>深度分析
             </button>
           </div>
         </div>
@@ -247,6 +259,16 @@
             </button>
           </li>
           <li class="nav-item" role="presentation">
+            <button class="nav-link" id="majors-tab" data-bs-toggle="tab" data-bs-target="#majors" type="button">
+              <i class="bi bi-mortarboard me-1"></i>专业
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="clusters-tab" data-bs-toggle="tab" data-bs-target="#clusters" type="button">
+              <i class="bi bi-diagram-3 me-1"></i>聚类
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
             <button class="nav-link" id="insights-tab" data-bs-toggle="tab" data-bs-target="#insights" type="button">
               <i class="bi bi-lightbulb me-1"></i>洞察
             </button>
@@ -276,9 +298,36 @@
               <div v-for="topic in currentAnalysis.topic_summaries" :key="topic.topic" class="col-md-6 mb-3">
                 <div class="card">
                   <div class="card-body">
-                    <h6 class="card-title">{{ topic.topic }}</h6>
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                      <h6 class="card-title mb-0">{{ topic.topic }}</h6>
+                      <span class="badge" :class="getSentimentBadgeClass(topic.sentiment_trend)">
+                        {{ getSentimentText(topic.sentiment_trend) }}
+                      </span>
+                    </div>
                     <p class="card-text text-muted small">{{ topic.summary }}</p>
-                    <span class="badge bg-secondary">{{ topic.post_count }} 帖子</span>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <span class="badge bg-secondary">{{ topic.post_count }} 帖子</span>
+                    </div>
+                    <div v-if="topic.related_universities?.length > 0" class="mb-2">
+                      <small class="text-muted">相关高校:</small>
+                      <div class="mt-1">
+                        <span v-for="uni in topic.related_universities.slice(0, 3)" 
+                              :key="uni" 
+                              class="badge bg-light text-dark me-1 mb-1">
+                          {{ uni }}
+                        </span>
+                      </div>
+                    </div>
+                    <div v-if="topic.related_majors?.length > 0">
+                      <small class="text-muted">相关专业:</small>
+                      <div class="mt-1">
+                        <span v-for="major in topic.related_majors.slice(0, 3)" 
+                              :key="major" 
+                              class="badge bg-primary text-white me-1 mb-1">
+                          {{ major }}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -305,6 +354,68 @@
             <div v-else class="text-center text-muted py-4">
               <i class="bi bi-building display-4"></i>
               <p class="mt-2">暂无高校数据</p>
+            </div>
+          </div>
+
+          <!-- 专业标签页 -->
+          <div class="tab-pane fade" id="majors">
+            <div v-if="currentAnalysis.major_analysis?.length > 0" class="row">
+              <div v-for="major in currentAnalysis.major_analysis" :key="major.major_name" class="col-md-6 col-lg-4 mb-3">
+                <div class="card">
+                  <div class="card-body">
+                    <h6 class="card-title">{{ major.major_name }}</h6>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <span class="badge bg-primary">{{ major.mention_count }} 次提及</span>
+                      <span class="badge" :class="getDifficultyBadgeClass(major.difficulty_level)">
+                        {{ getDifficultyText(major.difficulty_level) }}
+                      </span>
+                    </div>
+                    <div class="progress mb-2" style="height: 6px;">
+                      <div class="progress-bar" 
+                           :class="getJobProspectProgressClass(major.job_prospect_sentiment)"
+                           :style="{ width: `${Math.abs(major.job_prospect_sentiment) * 100}%` }">
+                      </div>
+                    </div>
+                    <small class="text-muted">就业前景评价</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="text-center text-muted py-4">
+              <i class="bi bi-mortarboard display-4"></i>
+              <p class="mt-2">暂无专业数据</p>
+            </div>
+          </div>
+
+          <!-- 聚类标签页 -->
+          <div class="tab-pane fade" id="clusters">
+            <div v-if="currentAnalysis.content_clusters?.length > 0" class="row">
+              <div v-for="cluster in currentAnalysis.content_clusters" :key="cluster.cluster_id" class="col-md-6 mb-3">
+                <div class="card">
+                  <div class="card-body">
+                    <h6 class="card-title">{{ cluster.cluster_name }}</h6>
+                    <p class="card-text text-muted small">{{ cluster.cluster_summary }}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <span class="badge bg-secondary">{{ cluster.post_count }} 帖子</span>
+                      <span class="badge bg-info">相似度: {{ (cluster.similarity_score * 100).toFixed(1) }}%</span>
+                    </div>
+                    <div v-if="cluster.keywords?.length > 0" class="mt-2">
+                      <small class="text-muted">关键词:</small>
+                      <div class="mt-1">
+                        <span v-for="keyword in cluster.keywords.slice(0, 5)" 
+                              :key="keyword" 
+                              class="badge bg-light text-dark me-1 mb-1">
+                          {{ keyword }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="text-center text-muted py-4">
+              <i class="bi bi-diagram-3 display-4"></i>
+              <p class="mt-2">暂无聚类数据</p>
             </div>
           </div>
 
@@ -367,9 +478,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { useUserStore } from '@/stores/user'
+import analysisService from '@/services/analysisService'
 import apiClient from '@/services/apiClient'
+import { useUserStore } from '@/stores/user'
+import { onMounted, reactive, ref } from 'vue'
 
 const userStore = useUserStore()
 
@@ -397,7 +509,7 @@ const submitAnalysis = async () => {
   analyzing.value = true
 
   try {
-    const response = await apiClient.post('/analysis/analyze', analysisForm)
+    const response = await analysisService.analyzeContent(analysisForm)
 
     if (response.success) {
       currentAnalysis.value = response.data
@@ -418,7 +530,8 @@ const submitAnalysis = async () => {
       alert(response.error?.message || '分析失败')
     }
   } catch (err) {
-    alert('网络错误，请稍后重试')
+    const errorMessage = err.response?.data?.detail || err.message || '网络错误，请稍后重试'
+    alert(errorMessage)
     console.error('分析错误:', err)
   } finally {
     analyzing.value = false
@@ -429,36 +542,105 @@ const quickAnalysis = async () => {
   analyzing.value = true
 
   try {
-    const response = await apiClient.post('/analysis/quick-analysis')
+    const response = await analysisService.quickAnalysis()
     if (response.success) {
       currentAnalysis.value = response.data
+      await loadAnalysisHistory()
       alert('快速分析完成！')
     } else {
       alert(response.error?.message || '快速分析失败')
     }
   } catch (err) {
-    alert('网络错误，请稍后重试')
+    const errorMessage = err.response?.data?.detail || err.message || '网络错误，请稍后重试'
+    alert(errorMessage)
     console.error('快速分析错误:', err)
   } finally {
     analyzing.value = false
   }
 }
 
-const universityAnalysis = () => {
-  analysisForm.analysis_types = ['university_mention', 'topic_summary']
-  submitAnalysis()
+const universityAnalysis = async () => {
+  analyzing.value = true
+
+  try {
+    const response = await analysisService.universityAnalysis(analysisForm.task_id, analysisForm.keyword_filter)
+    if (response.success) {
+      currentAnalysis.value = response.data
+      await loadAnalysisHistory()
+      alert('高校分析完成！')
+    } else {
+      alert(response.error?.message || '高校分析失败')
+    }
+  } catch (err) {
+    const errorMessage = err.response?.data?.detail || err.message || '网络错误，请稍后重试'
+    alert(errorMessage)
+    console.error('高校分析错误:', err)
+  } finally {
+    analyzing.value = false
+  }
 }
 
-const majorAnalysis = () => {
-  analysisForm.analysis_types = ['major_analysis', 'keyword_extraction']
-  submitAnalysis()
+const majorAnalysis = async () => {
+  analyzing.value = true
+
+  try {
+    const response = await analysisService.majorAnalysis(analysisForm.task_id, analysisForm.keyword_filter)
+    if (response.success) {
+      currentAnalysis.value = response.data
+      await loadAnalysisHistory()
+      alert('专业分析完成！')
+    } else {
+      alert(response.error?.message || '专业分析失败')
+    }
+  } catch (err) {
+    const errorMessage = err.response?.data?.detail || err.message || '网络错误，请稍后重试'
+    alert(errorMessage)
+    console.error('专业分析错误:', err)
+  } finally {
+    analyzing.value = false
+  }
+}
+
+const comprehensiveAnalysis = async () => {
+  analyzing.value = true
+
+  try {
+    const request = {
+      analysis_types: [
+        'topic_summary',
+        'content_clustering',
+        'keyword_extraction', 
+        'sentiment_analysis',
+        'university_mention',
+        'major_analysis'
+      ],
+      task_id: analysisForm.task_id || null,
+      keyword_filter: analysisForm.keyword_filter || null,
+      min_posts: 5
+    }
+    
+    const response = await analysisService.analyzeContent(request)
+    if (response.success) {
+      currentAnalysis.value = response.data
+      await loadAnalysisHistory()
+      alert('完整分析完成！包含所有分析类型的结果。')
+    } else {
+      alert(response.error?.message || '完整分析失败')
+    }
+  } catch (err) {
+    const errorMessage = err.response?.data?.detail || err.message || '网络错误，请稍后重试'
+    alert(errorMessage)
+    console.error('完整分析错误:', err)
+  } finally {
+    analyzing.value = false
+  }
 }
 
 const loadAnalysisHistory = async () => {
   try {
-    const response = await apiClient.get('/analysis/history')
+    const response = await analysisService.getAnalysisHistory()
     if (response.success) {
-      analysisHistory.value = response.data.items || []
+      analysisHistory.value = response.data.analyses || []
     }
   } catch (err) {
     console.error('加载分析历史失败:', err)
@@ -467,7 +649,7 @@ const loadAnalysisHistory = async () => {
 
 const loadTasks = async () => {
   try {
-    const response = await apiClient.get('/api/crawler/tasks', {
+    const response = await apiClient.get('/crawler/tasks', {
       params: { limit: 50, status: 0 } // 只加载已完成的任务
     })
     if (response.success) {
@@ -478,8 +660,20 @@ const loadTasks = async () => {
   }
 }
 
-const viewAnalysis = (analysis) => {
-  currentAnalysis.value = analysis
+const viewAnalysis = async (analysis) => {
+  try {
+    const response = await analysisService.getAnalysisDetail(analysis.analysis_id)
+    if (response.success) {
+      currentAnalysis.value = response.data
+    } else {
+      // 如果获取详情失败，使用列表中的简化数据
+      currentAnalysis.value = analysis
+    }
+  } catch (err) {
+    console.error('获取分析详情失败:', err)
+    // 如果获取详情失败，使用列表中的简化数据
+    currentAnalysis.value = analysis
+  }
 }
 
 const formatDate = (dateString) => {
@@ -491,6 +685,50 @@ const formatDate = (dateString) => {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+// 辅助方法
+const getDifficultyBadgeClass = (difficulty) => {
+  switch (difficulty) {
+    case 'easy': return 'bg-success'
+    case 'medium': return 'bg-warning'
+    case 'hard': return 'bg-danger'
+    default: return 'bg-secondary'
+  }
+}
+
+const getDifficultyText = (difficulty) => {
+  switch (difficulty) {
+    case 'easy': return '简单'
+    case 'medium': return '中等'
+    case 'hard': return '困难'
+    default: return '未知'
+  }
+}
+
+const getJobProspectProgressClass = (sentiment) => {
+  if (sentiment > 0.3) return 'bg-success'
+  if (sentiment > 0) return 'bg-warning'
+  if (sentiment > -0.3) return 'bg-info'
+  return 'bg-danger'
+}
+
+const getSentimentBadgeClass = (sentiment) => {
+  switch (sentiment) {
+    case 'positive': return 'bg-success'
+    case 'negative': return 'bg-danger'
+    case 'neutral': return 'bg-secondary'
+    default: return 'bg-light text-dark'
+  }
+}
+
+const getSentimentText = (sentiment) => {
+  switch (sentiment) {
+    case 'positive': return '积极'
+    case 'negative': return '消极'
+    case 'neutral': return '中性'
+    default: return sentiment
+  }
 }
 
 // 生命周期

@@ -74,7 +74,10 @@ class ContentAnalysisService:
         start_time = datetime.now()
         analysis_id = str(uuid.uuid4())
         
-        logger.info(f"开始内容分析: {analysis_id}, 类型: {request.analysis_types}")
+        # 处理task_id，如果是空字符串则设为None
+        task_id = request.task_id if request.task_id and request.task_id.strip() else None
+        
+        logger.info(f"开始内容分析: {analysis_id}, 类型: {request.analysis_types}, 任务ID: {task_id}")
         
         try:
             # 获取帖子数据
@@ -85,7 +88,7 @@ class ContentAnalysisService:
                 logger.warning(f"帖子数量不足: {len(posts)} < {request.min_posts}")
                 return ContentAnalysisResult(
                     analysis_id=analysis_id,
-                    task_id=request.task_id,
+                    task_id=task_id,
                     analysis_type=request.analysis_types[0] if request.analysis_types else AnalysisType.TOPIC_SUMMARY,
                     total_posts_analyzed=len(posts),
                     processing_time=0,
@@ -95,7 +98,7 @@ class ContentAnalysisService:
             # 初始化结果
             result = ContentAnalysisResult(
                 analysis_id=analysis_id,
-                task_id=request.task_id,
+                task_id=task_id,
                 analysis_type=request.analysis_types[0] if request.analysis_types else AnalysisType.TOPIC_SUMMARY,
                 total_posts_analyzed=len(posts),
                 processing_time=0.0  # 先设为0，后面会更新
@@ -521,8 +524,8 @@ class ContentAnalysisService:
             if good_job_majors:
                 insights.append(f"有{len(good_job_majors)}个专业的就业前景评价较为积极")
         
-        # 基于内容聚类的洞察
-        if result.content_clusters:
+        # 基于内容聚类的洞察（只有在执行了聚类分析时才生成）
+        if result.content_clusters and len(result.content_clusters) > 0:
             total_clustered = sum(c.post_count for c in result.content_clusters)
             insights.append(f"内容聚类发现了{len(result.content_clusters)}个主要话题类别，覆盖了{total_clustered}个帖子")
         
@@ -532,19 +535,324 @@ class ContentAnalysisService:
         """保存分析结果到数据库"""
         try:
             async with db_cursor() as cursor:
-                # 这里可以扩展保存逻辑，将分析结果存储到专门的表中
-                logger.info(f"分析结果 {result.analysis_id} 已准备保存（当前为模拟保存）")
+                # 保存主分析结果
+                await cursor.execute("""
+                    INSERT INTO content_analysis_results 
+                    (id, task_id, analysis_type, total_posts_analyzed, processing_time, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (
+                    result.analysis_id,
+                    result.task_id,
+                    result.analysis_type.value,
+                    result.total_posts_analyzed,
+                    result.processing_time,
+                    result.created_at
+                ))
+                
+                # 保存话题总结
+                for topic in result.topic_summaries:
+                    await cursor.execute("""
+                        INSERT INTO topic_summaries 
+                        (analysis_id, topic, summary, post_count, main_points, sentiment_trend, 
+                         related_universities, related_majors)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        result.analysis_id,
+                        topic.topic,
+                        topic.summary,
+                        topic.post_count,
+                        json.dumps(topic.main_points, ensure_ascii=False),
+                        topic.sentiment_trend,
+                        json.dumps(topic.related_universities, ensure_ascii=False),
+                        json.dumps(topic.related_majors, ensure_ascii=False)
+                    ))
+                
+                # 保存内容聚类
+                for cluster in result.content_clusters:
+                    await cursor.execute("""
+                        INSERT INTO content_clusters 
+                        (id, analysis_id, cluster_name, cluster_summary, post_ids, post_count, 
+                         similarity_score, keywords)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        cluster.cluster_id,
+                        result.analysis_id,
+                        cluster.cluster_name,
+                        cluster.cluster_summary,
+                        json.dumps(cluster.post_ids, ensure_ascii=False),
+                        cluster.post_count,
+                        cluster.similarity_score,
+                        json.dumps(cluster.keywords, ensure_ascii=False)
+                    ))
+                
+                # 保存关键词频率
+                for keyword in result.keyword_frequencies:
+                    await cursor.execute("""
+                        INSERT INTO keyword_frequencies 
+                        (analysis_id, keyword, frequency, importance_score, related_posts)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (
+                        result.analysis_id,
+                        keyword.keyword,
+                        keyword.frequency,
+                        keyword.importance_score,
+                        json.dumps(keyword.related_posts, ensure_ascii=False)
+                    ))
+                
+                # 保存情感分析
+                for sentiment in result.sentiment_analysis:
+                    await cursor.execute("""
+                        INSERT INTO sentiment_analysis 
+                        (analysis_id, post_id, sentiment, confidence, emotion_keywords)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (
+                        result.analysis_id,
+                        sentiment.post_id,
+                        sentiment.sentiment,
+                        sentiment.confidence,
+                        json.dumps(sentiment.emotion_keywords, ensure_ascii=False)
+                    ))
+                
+                # 保存高校提及分析
+                for uni in result.university_mentions:
+                    await cursor.execute("""
+                        INSERT INTO university_mentions 
+                        (analysis_id, university_name, mention_count, sentiment_score, 
+                         related_topics, post_ids)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (
+                        result.analysis_id,
+                        uni.university_name,
+                        uni.mention_count,
+                        uni.sentiment_score,
+                        json.dumps(uni.related_topics, ensure_ascii=False),
+                        json.dumps(uni.post_ids, ensure_ascii=False)
+                    ))
+                
+                # 保存专业分析
+                for major in result.major_analysis:
+                    await cursor.execute("""
+                        INSERT INTO major_analysis 
+                        (analysis_id, major_name, mention_count, job_prospect_sentiment, 
+                         difficulty_level, related_universities, key_discussions)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        result.analysis_id,
+                        major.major_name,
+                        major.mention_count,
+                        major.job_prospect_sentiment,
+                        major.difficulty_level,
+                        json.dumps(major.related_universities, ensure_ascii=False),
+                        json.dumps(major.key_discussions, ensure_ascii=False)
+                    ))
+                
+                # 保存分析洞察
+                for i, insight in enumerate(result.insights):
+                    await cursor.execute("""
+                        INSERT INTO analysis_insights 
+                        (analysis_id, insight_text, insight_type, importance_score)
+                        VALUES (%s, %s, %s, %s)
+                    """, (
+                        result.analysis_id,
+                        insight,
+                        'general',
+                        1.0 - (i * 0.1)  # 按顺序递减重要性
+                    ))
+                
+                logger.info(f"分析结果 {result.analysis_id} 已保存到数据库")
                 
         except Exception as e:
             logger.error(f"保存分析结果失败: {e}", exc_info=True)
+            raise
 
     async def get_analysis_history(self, skip: int = 0, limit: int = 20) -> Dict[str, Any]:
         """获取分析历史记录"""
-        # 这里可以从数据库获取历史分析记录
-        # 目前返回空结果
-        return {
-            "analyses": [],
-            "total": 0,
-            "page": skip // limit + 1,
-            "page_size": limit
-        }
+        try:
+            async with db_cursor() as cursor:
+                # 查询分析历史
+                await cursor.execute("""
+                    SELECT car.id, car.task_id, car.analysis_type, car.total_posts_analyzed,
+                           car.processing_time, car.created_at,
+                           GROUP_CONCAT(ai.insight_text ORDER BY ai.importance_score DESC SEPARATOR '|') as insights
+                    FROM content_analysis_results car
+                    LEFT JOIN analysis_insights ai ON car.id = ai.analysis_id
+                    GROUP BY car.id
+                    ORDER BY car.created_at DESC
+                    LIMIT %s OFFSET %s
+                """, (limit, skip))
+                
+                results = await cursor.fetchall()
+                
+                # 查询总数
+                await cursor.execute("SELECT COUNT(*) FROM content_analysis_results")
+                total_result = await cursor.fetchone()
+                total = total_result[0] if total_result else 0
+                
+                # 转换为响应格式
+                analyses = []
+                for row in results:
+                    insights = row[6].split('|') if row[6] else []
+                    analyses.append({
+                        "analysis_id": row[0],
+                        "task_id": row[1],
+                        "analysis_type": row[2],
+                        "total_posts_analyzed": row[3],
+                        "processing_time": float(row[4]),
+                        "created_at": row[5],
+                        "insights": insights[:5]  # 最多5个洞察
+                    })
+                
+                return {
+                    "analyses": analyses,
+                    "total": total,
+                    "page": skip // limit + 1,
+                    "page_size": limit
+                }
+                
+        except Exception as e:
+            logger.error(f"获取分析历史失败: {e}", exc_info=True)
+            return {
+                "analyses": [],
+                "total": 0,
+                "page": skip // limit + 1,
+                "page_size": limit
+            }
+
+    async def get_analysis_by_id(self, analysis_id: str) -> Optional[ContentAnalysisResult]:
+        """根据ID获取完整的分析结果"""
+        try:
+            async with db_cursor() as cursor:
+                # 获取主分析记录
+                await cursor.execute("""
+                    SELECT id, task_id, analysis_type, total_posts_analyzed, processing_time, created_at
+                    FROM content_analysis_results
+                    WHERE id = %s
+                """, (analysis_id,))
+                
+                main_result = await cursor.fetchone()
+                if not main_result:
+                    return None
+                
+                # 构建基础结果对象
+                result = ContentAnalysisResult(
+                    analysis_id=main_result[0],
+                    task_id=main_result[1],
+                    analysis_type=AnalysisType(main_result[2]),
+                    total_posts_analyzed=main_result[3],
+                    processing_time=float(main_result[4]),
+                    created_at=main_result[5]
+                )
+                
+                # 获取话题总结
+                await cursor.execute("""
+                    SELECT topic, summary, post_count, main_points, sentiment_trend, 
+                           related_universities, related_majors
+                    FROM topic_summaries WHERE analysis_id = %s
+                """, (analysis_id,))
+                
+                topic_rows = await cursor.fetchall()
+                for row in topic_rows:
+                    result.topic_summaries.append(TopicSummary(
+                        topic=row[0],
+                        summary=row[1],
+                        post_count=row[2],
+                        main_points=json.loads(row[3]) if row[3] else [],
+                        sentiment_trend=row[4],
+                        related_universities=json.loads(row[5]) if row[5] else [],
+                        related_majors=json.loads(row[6]) if row[6] else []
+                    ))
+                
+                # 获取关键词频率
+                await cursor.execute("""
+                    SELECT keyword, frequency, importance_score, related_posts
+                    FROM keyword_frequencies WHERE analysis_id = %s
+                    ORDER BY frequency DESC
+                """, (analysis_id,))
+                
+                keyword_rows = await cursor.fetchall()
+                for row in keyword_rows:
+                    result.keyword_frequencies.append(KeywordFrequency(
+                        keyword=row[0],
+                        frequency=row[1],
+                        importance_score=float(row[2]),
+                        related_posts=json.loads(row[3]) if row[3] else []
+                    ))
+                
+                # 获取高校提及
+                await cursor.execute("""
+                    SELECT university_name, mention_count, sentiment_score, related_topics, post_ids
+                    FROM university_mentions WHERE analysis_id = %s
+                    ORDER BY mention_count DESC
+                """, (analysis_id,))
+                
+                uni_rows = await cursor.fetchall()
+                for row in uni_rows:
+                    result.university_mentions.append(UniversityMention(
+                        university_name=row[0],
+                        mention_count=row[1],
+                        sentiment_score=float(row[2]),
+                        related_topics=json.loads(row[3]) if row[3] else [],
+                        post_ids=json.loads(row[4]) if row[4] else []
+                    ))
+                
+                # 获取专业分析
+                await cursor.execute("""
+                    SELECT major_name, mention_count, job_prospect_sentiment, difficulty_level,
+                           related_universities, key_discussions
+                    FROM major_analysis WHERE analysis_id = %s
+                    ORDER BY mention_count DESC
+                """, (analysis_id,))
+                
+                major_rows = await cursor.fetchall()
+                for row in major_rows:
+                    result.major_analysis.append(MajorAnalysis(
+                        major_name=row[0],
+                        mention_count=row[1],
+                        job_prospect_sentiment=float(row[2]),
+                        difficulty_level=row[3],
+                        related_universities=json.loads(row[4]) if row[4] else [],
+                        key_discussions=json.loads(row[5]) if row[5] else []
+                    ))
+                
+                # 获取洞察
+                await cursor.execute("""
+                    SELECT insight_text FROM analysis_insights 
+                    WHERE analysis_id = %s
+                    ORDER BY importance_score DESC
+                """, (analysis_id,))
+                
+                insight_rows = await cursor.fetchall()
+                result.insights = [row[0] for row in insight_rows]
+                
+                return result
+                
+        except Exception as e:
+            logger.error(f"获取分析结果失败: {e}", exc_info=True)
+            return None
+
+    async def delete_analysis(self, analysis_id: str) -> bool:
+        """删除分析结果"""
+        try:
+            async with db_cursor() as cursor:
+                # 检查分析是否存在
+                await cursor.execute(
+                    "SELECT id FROM content_analysis_results WHERE id = %s",
+                    (analysis_id,)
+                )
+                result = await cursor.fetchone()
+                
+                if not result:
+                    return False
+                
+                # 删除分析结果（由于外键约束，相关数据会级联删除）
+                await cursor.execute(
+                    "DELETE FROM content_analysis_results WHERE id = %s",
+                    (analysis_id,)
+                )
+                
+                logger.info(f"分析结果 {analysis_id} 已删除")
+                return True
+                
+        except Exception as e:
+            logger.error(f"删除分析结果失败: {e}", exc_info=True)
+            return False

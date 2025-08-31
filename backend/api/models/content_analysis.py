@@ -98,7 +98,7 @@ class AnalysisRequest(BaseModel):
     task_id: Optional[str] = Field(None, description="指定任务ID")
     analysis_types: List[AnalysisType] = Field(..., description="分析类型列表")
     keyword_filter: Optional[str] = Field(None, description="关键词过滤")
-    date_range: Optional[Dict[str, datetime]] = Field(None, description="时间范围")
+    date_range: Optional[Dict[str, str]] = Field(None, description="时间范围")
     min_posts: int = Field(default=10, description="最少帖子数量")
     
     model_config = {
