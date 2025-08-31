@@ -186,7 +186,7 @@
                   <button type="submit" class="btn btn-primary btn-lg" :disabled="crawling">
                     <span v-if="crawling" class="spinner-border spinner-border-sm me-2"></span>
                     <i v-else class="bi bi-play-fill me-2"></i>
-                    {{ crawling ? '���取中...' : '开始爬取' }}
+                    {{ crawling ? '爬取中...' : '开始爬取' }}
                   </button>
                 </div>
               </form>
@@ -230,7 +230,7 @@
           <div class="card">
             <div class="card-header">
               <h5 class="mb-0">
-                <i class="bi bi-clock-history me-2"></i>最近��务
+                <i class="bi bi-clock-history me-2"></i>最近任务
               </h5>
             </div>
             <div class="card-body">
@@ -296,9 +296,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { useUserStore } from '@/stores/user'
 import apiClient from '@/services/apiClient'
+import { useUserStore } from '@/stores/user'
+import { onMounted, reactive, ref } from 'vue'
 
 const userStore = useUserStore()
 
@@ -344,7 +344,7 @@ const startCrawl = async () => {
       lastResult.value = response.data
       showSuccessModal.value = true
 
-      // 重新加载最近任���
+  // 重新加载最近任务
       await loadRecentTasks()
     } else {
       alert(response.error?.message || '启动爬虫任务失败')

@@ -455,7 +455,7 @@ const loadPosts = async () => {
       error.value = response.error?.message || '加载帖子失败'
     }
   } catch (err) {
-    error.value = '网络错误，��稍后重试'
+  error.value = '网络错误，请稍后重试'
     console.error('加载帖子错误:', err)
   } finally {
     loading.value = false

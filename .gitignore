@@ -26,6 +26,7 @@ ehthumbs.db
 # 二进制文件和编译产物
 *.exe
 *.test
+/.history/
 *.out
 *.o
 *.a
@@ -42,6 +43,11 @@ __pycache__/
 
 # 分发/打包
 /py-services/dist/
+
+# Go build output
+bin/
+coverage.out
+
 /py-services/build/
 *.egg-info/
 eggs/
@@ -51,12 +57,17 @@ wheels/
 
 # 虚拟环境
 **/.venv
+
+# Python C extensions
+*.pyd
 venv/
 ENV/
 env/
 
 # 测试
 .pytest_cache/
+*.sql.bak
+*.dump
 .coverage
 htmlcov/
 .tox/
@@ -75,15 +86,40 @@ htmlcov/
 
 # --- 日志和临时文件 ---
 /logs/
+
+# VSCode REST Client
+*.http
 /tmp/
 /output/
 *.log
 *.logx.*
+
+# --- 前端构建产物 ---
+frontend/dist/
+frontend/.vite/
+frontend/*.log
+frontend/*.lock
+frontend/*.tmp
+frontend/*.bak
+frontend/*.map
+frontend/.DS_Store
+frontend/.env.local
+frontend/.env.*.local
+frontend/package-lock.json.*
+frontend/yarn.lock.*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.tmp
 *.bak
+
+# --- 其他 ---
+*.orig
+*.rej
+*~
+ehthumbs.db
+Thumbs.db
+Desktop.ini
 
 # --- Docker ---
 docker-compose.override.yml
