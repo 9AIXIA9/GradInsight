@@ -18,9 +18,9 @@ class Settings(BaseSettings):
 
     # MySQL数据库配置
     MYSQL_HOST: str = Field(default="localhost")
-    MYSQL_PORT: int = Field(default=4000)  # TiDB默认端口
+    MYSQL_PORT: int = Field(default=3306)  # MySQL默认端口
     MYSQL_USER: str = Field(default="root")
-    MYSQL_PASSWORD: str = Field(default="")
+    MYSQL_PASS: str = Field(default="")
     MYSQL_DATABASE: str = Field(default="gradinsight")
     MYSQL_CHARSET: str = Field(default="utf8mb4")
 

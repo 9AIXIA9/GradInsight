@@ -25,12 +25,12 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- 插入默认管理员账户（密码: admin123）
 INSERT INTO users (username, email, password_hash, role) VALUES
-('admin', 'admin@gradinsight.com', '$2b$12$hepMKtkdJk3vHmFxpRsh8uh/m1PR7MgUhuo5rLHzcGKhPQXuCvSCK', 'admin')
+('admin', 'admin@gradinsight.com', '$2b$12$mRmR.Bp10JQRe0Yy5t1UB.FBOwXQRQWKd8/LFjQPMap4xS/ym5qYi', 'admin')
 ON DUPLICATE KEY UPDATE username=username;
 
 -- 插入默认普通用户账户（密码: user123456）
 INSERT INTO users (username, email, password_hash, role) VALUES
-('testuser', 'user@gradinsight.com', '$2b$12$rQZm9qZqGqQgFqGQzQzQgO9QzQzQgOzQzQzQgOzQzQzQgOzQzQzQ', 'user')
+('testuser', 'user@gradinsight.com', '$2b$12$wge4pcUw0nhjD7LtwrRpDeSJ4uS5WEG1lTJ7VKFOK.pNjBWI/VnDu', 'user')
 ON DUPLICATE KEY UPDATE username=username;
 
 -- 查看表结构

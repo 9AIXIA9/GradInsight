@@ -41,7 +41,7 @@ async def get_connection_pool() -> aiomysql.Pool:
                 host=settings.MYSQL_HOST,
                 port=settings.MYSQL_PORT,
                 user=settings.MYSQL_USER,
-                password=settings.MYSQL_PASSWORD,
+                password=settings.MYSQL_PASS,
                 db=settings.MYSQL_DATABASE,
                 charset=settings.MYSQL_CHARSET,
                 autocommit=True,
