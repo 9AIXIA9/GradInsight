@@ -23,11 +23,15 @@ async def list_posts(
         keyword: str = Query(None),
         tag: str = Query(None),
         min_likes: int = Query(None, ge=0),
+        min_comments: int = Query(None, ge=0),
+        sort_by: str = Query("time"),
+        sort_order: str = Query("desc"),
         service: PostService = Depends(get_post_service),
         current_user: User = Depends(get_active_user)  # 需要登录才能查看高校信息
 ):
     """获取帖子列表（需要登录）"""
-    result = await service.get_posts(skip, limit, task_id, keyword, tag, min_likes)
+    print(f"[DEBUG] API接收到的参数: sort_by={sort_by}, sort_order={sort_order}")
+    result = await service.get_posts(skip, limit, task_id, keyword, tag, min_likes, min_comments, sort_by, sort_order)
     return result
 
 

@@ -127,6 +127,11 @@ class Post(BaseModel):
         description="帖子的评论列表",
         examples=[[]]
     )
+    hot_score: Optional[float] = Field(
+        default=0.0,
+        description="帖子的热度分数",
+        examples=[0.0, 15.5, 89.3]
+    )
 
     model_config = {
         "json_schema_extra": {

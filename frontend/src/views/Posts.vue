@@ -51,16 +51,23 @@
             >
           </div>
           <div class="col-md-3">
-            <label class="form-label">发布时间</label>
-            <select v-model="filters.time_range" class="form-select" @change="loadPosts">
-              <option value="">全部时间</option>
-              <option value="today">今天</option>
-              <option value="week">本周</option>
-              <option value="month">本月</option>
-              <option value="year">今年</option>
+            <label class="form-label">排序字段</label>
+            <select v-model="sortConfig.field" class="form-select" @change="loadPosts">
+              <option value="time">按时间排序</option>
+              <option value="like_count">按点赞数排序</option>
+              <option value="comment_count">按评论数排序</option>
+              <option value="collect_count">按收藏数排序</option>
+              <option value="hot_score">按热度分数排序</option>
             </select>
           </div>
-          <div class="col-md-3 d-flex align-items-end">
+          <div class="col-md-2">
+            <label class="form-label">排序方向</label>
+            <select v-model="sortConfig.order" class="form-select" @change="loadPosts">
+              <option value="desc">降序 ↓</option>
+              <option value="asc">升序 ↑</option>
+            </select>
+          </div>
+          <div class="col-md-1 d-flex align-items-end">
             <button class="btn btn-outline-secondary me-2" @click="resetFilters">
               <i class="bi bi-arrow-clockwise me-1"></i>重置
             </button>
@@ -94,17 +101,6 @@
           共找到 {{ posts.total || 0 }} 条帖子
         </span>
         <div class="d-flex align-items-center gap-3">
-          <!-- 排序选择 -->
-          <div class="d-flex align-items-center">
-            <label class="form-label me-2 mb-0">排序:</label>
-            <select v-model="sortBy" class="form-select form-select-sm" @change="loadPosts" style="width: auto;">
-              <option value="time">时间</option>
-              <option value="like_count">点赞数</option>
-              <option value="comment_count">评论数</option>
-              <option value="collect_count">收藏数</option>
-            </select>
-          </div>
-
           <!-- 视图模式切换 -->
           <div class="btn-group btn-group-sm" role="group">
             <input type="radio" class="btn-check" name="viewMode" id="grid" v-model="viewMode" value="grid">
@@ -136,7 +132,7 @@
                 <small class="text-muted">{{ formatDate(post.created_at || post.time) }}</small>
               </div>
 
-              <h6 class="card-title">{{ post.title || '无标题' }}</h6>
+              <h6 class="card-title">{{ getDisplayTitle(post) }}</h6>
               <p class="card-text text-muted small">
                 {{ truncateText(post.content, 100) }}
               </p>
@@ -196,7 +192,7 @@
             <div class="d-flex justify-content-between align-items-start">
               <div class="flex-grow-1">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                  <h6 class="mb-0">{{ post.title || '无标题' }}</h6>
+                  <h6 class="mb-0">{{ getDisplayTitle(post) }}</h6>
                   <div>
                     <span class="badge bg-primary me-2">小红书</span>
                     <small class="text-muted">{{ formatDate(post.created_at || post.time) }}</small>
@@ -281,7 +277,7 @@
           <div class="modal-body" v-if="selectedPost">
             <!-- 帖子信息 -->
             <div class="border-bottom pb-4 mb-4">
-              <h4>{{ selectedPost.title || '无标题' }}</h4>
+              <h4>{{ getDisplayTitle(selectedPost) }}</h4>
               <div class="row mb-3">
                 <div class="col-md-6">
                   <small class="text-muted">
@@ -386,15 +382,19 @@ const error = ref('')
 const posts = ref({ items: [], total: 0 })
 const searchKeyword = ref('')
 const viewMode = ref('grid')
-const sortBy = ref('time')
 const showDetailsModal = ref(false)
 const selectedPost = ref(null)
 
 // 筛选器
 const filters = reactive({
   min_likes: '',
-  min_comments: '',
-  time_range: ''
+  min_comments: ''
+})
+
+// 排序配置
+const sortConfig = reactive({
+  field: 'time',
+  order: 'desc'
 })
 
 // 分页
@@ -434,14 +434,14 @@ const loadPosts = async () => {
     const params = {
       skip: (pagination.currentPage - 1) * pagination.pageSize,
       limit: pagination.pageSize,
-      sort_by: sortBy.value
+      sort_by: sortConfig.field,
+      sort_order: sortConfig.order
     }
 
     // 添加搜索和筛选参数
     if (searchKeyword.value) params.keyword = searchKeyword.value
     if (filters.min_likes) params.min_likes = filters.min_likes
     if (filters.min_comments) params.min_comments = filters.min_comments
-    if (filters.time_range) params.time_range = filters.time_range
 
     const response = await apiClient.get('/api/posts', { params })
 
@@ -465,9 +465,9 @@ const loadPosts = async () => {
 const resetFilters = () => {
   filters.min_likes = ''
   filters.min_comments = ''
-  filters.time_range = ''
   searchKeyword.value = ''
-  sortBy.value = 'time'
+  sortConfig.field = 'time'
+  sortConfig.order = 'desc'
   pagination.currentPage = 1
   loadPosts()
 }
@@ -509,6 +509,25 @@ const formatNumber = (num) => {
     return (num / 1000).toFixed(1) + 'k'
   }
   return num.toString()
+}
+
+const getDisplayTitle = (post) => {
+  // 如果有标题且不为空（去除空白字符后）
+  if (post.title && post.title.trim()) {
+    return post.title
+  }
+  
+  // 如果没有标题但有内容，使用内容前20个字符作为标题
+  if (post.content && post.content.trim()) {
+    const content = post.content.replace(/\n/g, ' ').replace(/\r/g, ' ').trim()
+    if (content.length > 20) {
+      return content.substring(0, 20) + '...'
+    }
+    return content
+  }
+  
+  // 如果既没有标题也没有内容
+  return '无标题'
 }
 
 // 生命周期

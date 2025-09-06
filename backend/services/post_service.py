@@ -19,12 +19,14 @@ class PostService:
 
     async def get_posts(self, skip: int = 0, limit: int = None,
                         task_id: Optional[str] = None, keyword: Optional[str] = None,
-                        tag: Optional[str] = None, min_likes: Optional[int] = None) -> Dict[str, Any]:
+                        tag: Optional[str] = None, min_likes: Optional[int] = None,
+                        min_comments: Optional[int] = None, sort_by: Optional[str] = None,
+                        sort_order: Optional[str] = None) -> Dict[str, Any]:
         """获取帖子列表"""
         try:
             # 记录请求开始
             start_time = datetime.now()
-            logger.info(f"开始获取帖子列表: skip={skip}, limit={limit}, task_id={task_id}, keyword={keyword}, tag={tag}, min_likes={min_likes}")
+            logger.info(f"开始获取帖子列表: skip={skip}, limit={limit}, task_id={task_id}, keyword={keyword}, tag={tag}, min_likes={min_likes}, min_comments={min_comments}, sort_by={sort_by}, sort_order={sort_order}")
 
             # 使用配置的默认值
             if limit is None:
@@ -54,7 +56,34 @@ class PostService:
                 where_conditions.append("like_count >= %s")
                 params.append(min_likes)
 
+            if min_comments is not None:
+                where_conditions.append("comment_count >= %s")
+                params.append(min_comments)
+
             where_clause = " WHERE " + " AND ".join(where_conditions) if where_conditions else ""
+
+            # 排序字段映射
+            sort_field_map = {
+                "time": "post_time",
+                "like_count": "like_count",
+                "comment_count": "comment_count",
+                "collect_count": "collect_count",
+                "hot_score": "hot_score"
+            }
+            
+            # 设置排序字段，默认按时间排序
+            if sort_by and sort_by in sort_field_map:
+                order_field = sort_field_map[sort_by]
+            else:
+                order_field = "post_time"
+            
+            # 设置排序方向，默认降序
+            if sort_order and sort_order.lower() in ["asc", "desc"]:
+                order_direction = sort_order.upper()
+            else:
+                order_direction = "DESC"
+
+            logger.warning(f"[DEBUG] 排序参数: sort_by={sort_by}, sort_order={sort_order}, order_field={order_field}, order_direction={order_direction}")
 
             # 使用单一长连接的游标进行查询
             # 先计算总数
@@ -75,17 +104,18 @@ class PostService:
                     }
 
                 # 查询帖子数据
-                order_direction = "DESC" if settings.POST_SORT_ORDER == -1 else "ASC"
                 query_sql = f"""
                 SELECT id, task_id, title, content, poster, post_time as time, 
-                       like_count, comment_count, collect_count, location, tags, image_urls, link
+                       like_count, comment_count, collect_count, location, tags, image_urls, link, hot_score
                 FROM {settings.MYSQL_POST_TABLE}
                 {where_clause}
-                ORDER BY {settings.POST_SORT_FIELD} {order_direction}
+                ORDER BY {order_field} {order_direction}
                 LIMIT %s OFFSET %s
                 """
 
                 query_params = params + [limit, skip]
+                logger.warning(f"[DEBUG] 执行SQL查询: {query_sql}")
+                logger.warning(f"[DEBUG] 查询参数: {query_params}")
 
                 # 使用同一游标执行查询
                 await cursor.execute(query_sql, query_params)
@@ -118,10 +148,19 @@ class PostService:
                         logger.warning(f"帖子 {row[0]} 的图片URL JSON解析失败: {row[11]}")
                         image_urls = []
 
+                    # 处理标题为空的情况，使用内容前20个字符作为标题
+                    title = row[2] or ""
+                    if not title.strip() and row[3]:  # 如果标题为空但内容不为空
+                        content = row[3] or ""
+                        # 取内容前20个字符作为标题，去除换行符和多余空格
+                        title = content.replace('\n', ' ').replace('\r', ' ').strip()[:20]
+                        if len(content) > 20:
+                            title += "..."
+
                     post = Post(
                         id=row[0],
                         task_id=row[1],
-                        title=row[2] or "",
+                        title=title or "无标题",
                         content=row[3] or "",
                         poster=row[4] or "",
                         time=row[5] or datetime.now(),
@@ -132,6 +171,7 @@ class PostService:
                         tags=tags,
                         image_urls=image_urls,
                         link=row[12],  # 添加link字段
+                        hot_score=float(row[13]) if row[13] is not None else 0.0,  # 添加hot_score字段
                         comments=[]
                     )
                     posts.append(post)
