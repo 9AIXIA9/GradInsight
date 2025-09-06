@@ -1,13 +1,14 @@
 <template>
   <div>
     <!-- 英雄区域 -->
-    <div class="hero-section text-center py-5 mb-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+    <div class="hero-section text-center py-5 mb-5"
+      style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
       <div class="container">
         <h1 class="display-3 fw-bold mb-4">{{ appConfig.name }}</h1>
         <p class="display-6 mb-3">{{ appConfig.title }}</p>
         <p class="lead fs-5 mb-4">{{ appConfig.description }}</p>
         <p class="fs-6 mb-4">{{ appConfig.subtitle }}</p>
-        
+
         <div v-if="!userStore.isAuthenticated" class="mt-4">
           <router-link to="/register" class="btn btn-light btn-lg me-3 px-4 py-2">
             <i class="bi bi-person-plus me-2"></i>立即注册
@@ -97,6 +98,12 @@
               <router-link v-if="userStore.isAdmin" to="/crawler" class="btn btn-outline-primary">
                 启动爬虫
               </router-link>
+              <button v-else-if="userStore.isAuthenticated" class="btn btn-outline-secondary" disabled>
+                仅限管理员
+              </button>
+              <router-link v-else to="/login" class="btn btn-outline-primary">
+                登录查看
+              </router-link>
             </div>
           </div>
         </div>
@@ -147,7 +154,8 @@
                 加载中...
               </div>
               <div v-else>
-                <div v-for="(school, index) in hotSchools" :key="index" class="d-flex justify-content-between align-items-center mb-3">
+                <div v-for="(school, index) in hotSchools" :key="index"
+                  class="d-flex justify-content-between align-items-center mb-3">
                   <div>
                     <h6 class="mb-1">{{ school.name }}</h6>
                     <small class="text-muted">{{ school.location }} · {{ school.type }}</small>
@@ -206,11 +214,14 @@
           </router-link>
         </div>
         <div v-else>
-          <router-link to="/crawler" class="btn btn-primary btn-lg me-3">
+          <router-link v-if="userStore.isAdmin" to="/crawler" class="btn btn-primary btn-lg me-3">
             <i class="bi bi-rocket me-2"></i>启动爬虫
           </router-link>
-          <router-link to="/posts" class="btn btn-outline-primary btn-lg">
+          <router-link to="/posts" class="btn btn-primary btn-lg me-3">
             <i class="bi bi-search me-2"></i>浏览数据
+          </router-link>
+          <router-link to="/analysis" class="btn btn-outline-primary btn-lg">
+            <i class="bi bi-bar-chart me-2"></i>数据分析
           </router-link>
         </div>
       </div>
