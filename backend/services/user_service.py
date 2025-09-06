@@ -21,27 +21,31 @@ class UserService:
         """创建用户 - 使用安全创建用户存储过程"""
         try:
             hashed_password = get_password_hash(user_data.password)
+            logger.info(f"开始创建用户: {user_data.username}, 邮箱: {user_data.email}")
 
             # 使用安全的用户创建存储过程，自动处理重复检查和验证
             async with db_cursor() as cursor:
+                logger.debug(f"调用存储过程 sp_create_user_safe")
+                
                 # 调用安全创建用户存储过程
                 await cursor.callproc('sp_create_user_safe', [
                     user_data.username,
                     user_data.email, 
                     hashed_password,
                     user_data.role.value,
-                    '@result',  # OUT参数：结果信息
-                    '@user_id'  # OUT参数：用户ID
+                    '',  # OUT参数占位符
+                    0    # OUT参数占位符
                 ])
                 
-                # 获取OUT参数结果
-                await cursor.execute("SELECT @result, @user_id")
+                # 获取输出参数结果（现在存储过程会设置会话变量）
+                await cursor.execute("SELECT @p_result, @p_user_id")
                 result_row = await cursor.fetchone()
                 
-                if result_row:
+                if result_row and result_row != (None, None):
                     result_msg, user_id = result_row
+                    logger.debug(f"存储过程返回: result_msg={result_msg}, user_id={user_id}")
                     
-                    if result_msg.startswith('SUCCESS') and user_id:
+                    if result_msg and result_msg.startswith('SUCCESS') and user_id:
                         logger.info(f"用户创建成功: {user_data.username} (ID: {user_id})")
                         
                         # 查询创建的用户信息
@@ -62,12 +66,25 @@ class UserService:
                                 created_at=created_at,
                                 updated_at=updated_at
                             )
+                        else:
+                            logger.error(f"无法查询到创建的用户信息: {user_id}")
+                            return None
                     else:
                         # 存储过程返回错误信息
-                        logger.warning(f"用户创建失败: {result_msg}")
+                        if result_msg:
+                            if 'ERROR: 用户名已存在' in result_msg:
+                                logger.warning(f"用户名已存在: {user_data.username}")
+                            elif 'ERROR: 邮箱已存在' in result_msg:
+                                logger.warning(f"邮箱已存在: {user_data.email}")
+                            else:
+                                logger.warning(f"用户创建失败: {result_msg}")
+                        else:
+                            logger.error("存储过程未返回有效的结果消息")
                         return None
+                else:
+                    logger.error("存储过程未返回有效结果")
+                    return None
                 
-                return None
         except Exception as e:
             logger.error(f"创建用户出错: {e}", exc_info=True)
             raise

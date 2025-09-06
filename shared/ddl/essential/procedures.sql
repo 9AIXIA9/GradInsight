@@ -14,10 +14,15 @@ CREATE PROCEDURE sp_create_user_safe(
 ) BEGIN
 DECLARE v_username_exists INT DEFAULT 0;
 DECLARE v_email_exists INT DEFAULT 0;
+DECLARE v_error_occurred BOOLEAN DEFAULT FALSE;
 DECLARE EXIT HANDLER FOR SQLEXCEPTION BEGIN ROLLBACK;
 SET p_result = 'ERROR: 创建用户时发生数据库错误';
 SET p_user_id = NULL;
+SET v_error_occurred = TRUE;
 END;
+-- 初始化输出参数
+SET p_result = NULL;
+SET p_user_id = NULL;
 START TRANSACTION;
 -- 检查用户名是否已存在
 SELECT COUNT(*) INTO v_username_exists
@@ -36,19 +41,32 @@ SET p_result = 'ERROR: 邮箱已存在';
 SET p_user_id = NULL;
 ROLLBACK;
 ELSE -- 创建用户
-INSERT INTO users (username, email, password_hash, role, is_active)
+INSERT INTO users (
+        username,
+        email,
+        password_hash,
+        role,
+        is_active,
+        created_at,
+        updated_at
+    )
 VALUES (
         p_username,
         p_email,
         p_password_hash,
         p_role,
-        TRUE
+        TRUE,
+        NOW(),
+        NOW()
     );
 SET p_user_id = LAST_INSERT_ID();
 SET p_result = 'SUCCESS: 用户创建成功';
 COMMIT;
 END IF;
 END IF;
+-- 设置会话变量，方便调用者获取结果
+SET @p_result = p_result;
+SET @p_user_id = p_user_id;
 END // -- =================================================
 -- 2. 快速获取统计数据存储过程 - 优化stats.py的多次查询
 -- =================================================
@@ -338,7 +356,9 @@ SELECT p.id,
         END
         WHEN TIMESTAMPDIFF(HOUR, p.post_time, NOW()) <= 168 THEN (
             p.like_count * 1.0 + p.comment_count * 2.0 + p.collect_count * 3.0
-        ) * EXP(- TIMESTAMPDIFF(HOUR, p.post_time, NOW()) / 168.0) * CASE
+        ) * EXP(
+            - TIMESTAMPDIFF(HOUR, p.post_time, NOW()) / 168.0
+        ) * CASE
             WHEN CHAR_LENGTH(p.content) < 50 THEN 0.5000
             WHEN CHAR_LENGTH(p.content) < 200 THEN 0.8000
             WHEN CHAR_LENGTH(p.content) < 500 THEN 1.0000
