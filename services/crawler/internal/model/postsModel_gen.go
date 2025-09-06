@@ -56,6 +56,7 @@ type (
 		ImageUrls    sql.NullString `db:"image_urls"`    // 图片URL数组
 		CreatedAt    time.Time      `db:"created_at"`    // 创建时间
 		UpdatedAt    time.Time      `db:"updated_at"`    // 更新时间
+		HotScore     float64        `db:"hot_score"`     // 热度分数
 	}
 )
 
@@ -95,8 +96,8 @@ func (m *defaultPostsModel) FindOne(ctx context.Context, id string) (*Posts, err
 func (m *defaultPostsModel) Insert(ctx context.Context, data *Posts) (sql.Result, error) {
 	gradinsightPostsIdKey := fmt.Sprintf("%s%v", cacheGradinsightPostsIdPrefix, data.Id)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, postsRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.Id, data.TaskId, data.Title, data.Content, data.Poster, data.PostTime, data.Location, data.Link, data.Tags, data.LikeCount, data.CommentCount, data.CollectCount, data.ImageUrls)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, postsRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.Id, data.TaskId, data.Title, data.Content, data.Poster, data.PostTime, data.Location, data.Link, data.Tags, data.LikeCount, data.CommentCount, data.CollectCount, data.ImageUrls, data.HotScore)
 	}, gradinsightPostsIdKey)
 	return ret, err
 }
@@ -105,7 +106,7 @@ func (m *defaultPostsModel) Update(ctx context.Context, data *Posts) error {
 	gradinsightPostsIdKey := fmt.Sprintf("%s%v", cacheGradinsightPostsIdPrefix, data.Id)
 	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, postsRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, data.TaskId, data.Title, data.Content, data.Poster, data.PostTime, data.Location, data.Link, data.Tags, data.LikeCount, data.CommentCount, data.CollectCount, data.ImageUrls, data.Id)
+		return conn.ExecCtx(ctx, query, data.TaskId, data.Title, data.Content, data.Poster, data.PostTime, data.Location, data.Link, data.Tags, data.LikeCount, data.CommentCount, data.CollectCount, data.ImageUrls, data.HotScore, data.Id)
 	}, gradinsightPostsIdKey)
 	return err
 }

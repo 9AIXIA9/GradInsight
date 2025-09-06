@@ -215,3 +215,95 @@ class PostService:
         except Exception as e:
             logger.error(f"加载评论出错: {e}", exc_info=True)
             # 出错时不影响主流程，继续返回帖子数据
+
+    async def calculate_hot_score(self, post_id: str) -> float:
+        """计算单个帖子的热度分数"""
+        try:
+            async with db_cursor() as cursor:
+                # 调用存储过程计算热度分数，使用正确的语法
+                await cursor.execute("CALL sp_calculate_hot_score(%s, @hot_score)", [post_id])
+                
+                # 获取输出参数
+                await cursor.execute("SELECT @hot_score as hot_score")
+                result = await cursor.fetchone()
+                
+                hot_score = float(result[0]) if result and result[0] is not None else 0.0
+                logger.info(f"计算帖子 {post_id} 热度分数: {hot_score}")
+                
+                return hot_score
+                
+        except Exception as e:
+            logger.error(f"计算帖子热度分数出错: {e}", exc_info=True)
+            return 0.0
+
+    async def get_hot_posts(self, limit: int = 20, min_score: float = 0.0) -> List[Dict[str, Any]]:
+        """获取热门帖子列表"""
+        try:
+            # 限制页面大小
+            limit = min(limit, settings.MAX_PAGE_SIZE)
+            
+            async with db_cursor() as cursor:
+                # 调用存储过程获取热门帖子
+                await cursor.callproc('sp_get_hot_posts', [limit, min_score])
+                
+                # 获取结果集
+                rows = await cursor.fetchall()
+                
+                hot_posts = []
+                for row in rows:
+                    post_data = {
+                        "id": row[0],
+                        "title": row[1],
+                        "poster": row[2],
+                        "post_time": row[3],
+                        "like_count": row[4] or 0,
+                        "comment_count": row[5] or 0,
+                        "collect_count": row[6] or 0,
+                        "hot_score": float(row[7]) if row[7] is not None else 0.0,
+                        "task_keyword": row[8],
+                        "hours_since_post": row[9] or 0
+                    }
+                    hot_posts.append(post_data)
+                
+                logger.info(f"获取热门帖子列表: 返回{len(hot_posts)}个帖子，最低分数:{min_score}")
+                return hot_posts
+                
+        except Exception as e:
+            logger.error(f"获取热门帖子列表出错: {e}", exc_info=True)
+            return []
+
+    async def update_all_hot_scores(self) -> Dict[str, Any]:
+        """批量更新所有帖子的热度分数（需要先添加hot_score字段）"""
+        try:
+            async with db_cursor() as cursor:
+                # 调用存储过程批量计算热度分数
+                await cursor.callproc('sp_calculate_all_hot_scores', [0])
+                
+                # 获取输出参数
+                await cursor.execute("SELECT @_sp_calculate_all_hot_scores_0 as updated_count")
+                result = await cursor.fetchone()
+                
+                updated_count = int(result[0]) if result and result[0] is not None else 0
+                
+                if updated_count >= 0:
+                    logger.info(f"批量更新热度分数完成: 更新了{updated_count}个帖子")
+                    return {
+                        "success": True,
+                        "updated_count": updated_count,
+                        "message": f"成功更新了 {updated_count} 个帖子的热度分数"
+                    }
+                else:
+                    logger.error("批量更新热度分数失败")
+                    return {
+                        "success": False,
+                        "updated_count": 0,
+                        "message": "批量更新热度分数时发生错误"
+                    }
+                
+        except Exception as e:
+            logger.error(f"批量更新热度分数出错: {e}", exc_info=True)
+            return {
+                "success": False,
+                "updated_count": 0,
+                "message": f"批量更新热度分数失败: {str(e)}"
+            }

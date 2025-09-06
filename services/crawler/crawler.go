@@ -5,14 +5,13 @@ import (
 	"flag"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/zero-contrib/zrpc/registry/consul"
+	"gradinsight-crawler/internal/config"
 	"gradinsight-crawler/internal/control"
 	"gradinsight-crawler/internal/infra/utils/snowflake"
-	"time"
-
-	"gradinsight-crawler/internal/config"
 	"gradinsight-crawler/internal/server"
 	"gradinsight-crawler/internal/svc"
 	"gradinsight-crawler/proto"
+	"time"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"

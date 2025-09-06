@@ -27,12 +27,12 @@ logging.basicConfig(
 settings = get_settings()
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(fastapi_app: FastAPI):
     # 启动事件
-    await startup_event(app)
+    await startup_event(fastapi_app)
     yield
     # 关闭事件
-    await shutdown_event(app)
+    await shutdown_event(fastapi_app)
 
 # 创建应用
 app = FastAPI(

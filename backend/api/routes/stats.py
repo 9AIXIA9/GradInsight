@@ -20,60 +20,56 @@ settings = get_settings()
 
 @router.get("/overview", response_model=ResponseModel)
 async def get_stats_overview() -> ResponseModel:
-    """获取首页统计数据概览 - 公开访问"""
+    """获取首页统计数据概览 - 使用数据概览视图"""
     try:
-        logger.info("开始获取统计数据概览")
+        logger.info("开始获取统计数据概览（使用v_data_overview视图）")
 
-        # 使用正确的单连接方式
         async with db_cursor() as cursor:
-            # 获取帖子总数
-            await cursor.execute("SELECT COUNT(*) FROM posts")
-            total_posts = (await cursor.fetchone())[0]
-            logger.info(f"帖子总数: {total_posts}")
+            # 使用数据概览视图，一次查询获取所有统计数据
+            await cursor.execute("SELECT * FROM v_data_overview")
+            overview_result = await cursor.fetchone()
+            
+            if overview_result:
+                (total_posts, total_comments, completed_tasks, unique_keywords,
+                 active_users, total_post_likes, total_comment_likes) = overview_result
+                
+                # 格式化显示数据
+                def format_number(num):
+                    if num >= 50000:
+                        return f"{num//1000}K+"
+                    elif num >= 10000:
+                        return f"{num//1000}K+"
+                    elif num >= 1000:
+                        return f"{(num//100)/10:.1f}K"
+                    elif num > 0:
+                        return str(num)
+                    else:
+                        return "0"
 
-            # 获取评论总数
-            await cursor.execute("SELECT COUNT(*) FROM comments")
-            total_comments = (await cursor.fetchone())[0]
-            logger.info(f"评论总数: {total_comments}")
-
-            # 获取已完成任务总数
-            await cursor.execute("SELECT COUNT(*) FROM tasks WHERE status = 0")
-            total_tasks = (await cursor.fetchone())[0]
-            logger.info(f"已完成任务总数: {total_tasks}")
-
-            # 获取涉及的高校数量（通过关键词去重估算）
-            await cursor.execute("SELECT COUNT(DISTINCT keyword) FROM tasks")
-            total_schools = (await cursor.fetchone())[0]
-            logger.info(f"高校数量: {total_schools}")
-
-            # 格式化显示数据
-            def format_number(num):
-                if num >= 50000:
-                    return f"{num//1000}K+"
-                elif num >= 10000:
-                    return f"{num//1000}K+"
-                elif num >= 1000:
-                    return f"{(num//100)/10:.1f}K"
-                elif num > 0:
-                    return str(num)
-                else:
-                    return "0"
-
-            # 使用真实数据或合理的默认值
-            display_posts = format_number(total_posts) if total_posts > 100 else f"{total_posts + settings.STATS_DEFAULT_POSTS_BOOST}"
-            display_comments = format_number(total_comments) if total_comments > 500 else f"{total_comments + settings.STATS_DEFAULT_COMMENTS_BOOST}"
-            display_schools = str(max(total_schools, settings.STATS_DEFAULT_SCHOOLS_COUNT))
-            display_tasks = str(max(total_tasks, settings.STATS_DEFAULT_TASKS_COUNT))
-
-            return ResponseModel(
-                success=True,
-                data={
-                    "totalPosts": display_posts,
-                    "totalComments": display_comments,
-                    "totalSchools": display_schools,
-                    "totalTasks": display_tasks
-                }
-            )
+                return ResponseModel(
+                    success=True,
+                    data={
+                        "totalPosts": format_number(total_posts or 0),
+                        "totalComments": format_number(total_comments or 0),
+                        "totalSchools": str(unique_keywords or 0),
+                        "totalTasks": str(completed_tasks or 0),
+                        "activeUsers": str(active_users or 0),
+                        "totalLikes": format_number((total_post_likes or 0) + (total_comment_likes or 0))
+                    }
+                )
+            else:
+                # 如果视图没有数据，返回默认值
+                return ResponseModel(
+                    success=True,
+                    data={
+                        "totalPosts": "0",
+                        "totalComments": "0",
+                        "totalSchools": "0", 
+                        "totalTasks": "0",
+                        "activeUsers": "0",
+                        "totalLikes": "0"
+                    }
+                )
 
     except Exception as e:
         logger.error(f"获取统计概览失败: {e}", exc_info=True)
@@ -90,36 +86,23 @@ async def get_stats_overview() -> ResponseModel:
 
 @router.get("/hot-schools", response_model=ResponseModel)
 async def get_hot_schools(limit: int = 5) -> ResponseModel:
-    """获取热门高校榜单 - 公开访问"""
+    """获取热门高校榜单 - 使用热门关键词视图"""
     try:
-        logger.info(f"开始获取热门高校榜单，限制数量: {limit}")
+        logger.info(f"开始获取热门高校榜单（使用v_hot_keywords视图），限制数量: {limit}")
 
-        # 使用正确的单连接方式
         async with db_cursor() as cursor:
-            # 获取最近7天的热门关键词（模拟高校��据）
-            seven_days_ago = datetime.now() - timedelta(days=7)
-
-            query = """
-            SELECT 
-                t.keyword,
-                COUNT(p.id) as post_count,
-                SUM(p.like_count) as total_likes
-            FROM tasks t
-            LEFT JOIN posts p ON t.id = p.task_id
-            WHERE t.created_at >= %s
-            GROUP BY t.keyword
-            HAVING post_count > 0
-            ORDER BY post_count DESC, total_likes DESC
-            LIMIT %s
-            """
-
-            logger.info(f"执行热门高校查询: {query}")
-            await cursor.execute(query, (seven_days_ago, limit))
+            # 使用热门关键词视图，大大简化查询
+            await cursor.execute("""
+                SELECT keyword, post_count, total_likes, avg_likes, unique_posters
+                FROM v_hot_keywords 
+                LIMIT %s
+            """, [limit])
+            
             results = await cursor.fetchall()
-            logger.info(f"热门高校查询结果: {len(results)} 条记录")
+            logger.info(f"热门关键词查询结果: {len(results)} 条记录")
 
             hot_schools = []
-            for i, (keyword, post_count, total_likes) in enumerate(results):
+            for keyword, post_count, total_likes, avg_likes, unique_posters in results:
                 # 简单的关键词到高校信息的映射
                 school_info = get_school_info(keyword)
 
@@ -128,7 +111,7 @@ async def get_hot_schools(limit: int = 5) -> ResponseModel:
                     "location": school_info["location"],
                     "type": school_info["type"],
                     "posts": f"{post_count:,}",
-                    "trend": f"+{min(20, max(5, int((total_likes or 0) / 1000)))}%"
+                    "trend": f"+{min(20, max(5, int((avg_likes or 0) / 10)))}%"
                 })
 
             return ResponseModel(success=True, data=hot_schools)
@@ -140,34 +123,25 @@ async def get_hot_schools(limit: int = 5) -> ResponseModel:
 
 @router.get("/trending-majors", response_model=ResponseModel)
 async def get_trending_majors() -> ResponseModel:
-    """获取热门专业趋势 - 公开访问"""
+    """获取热门专业趋势 - 使用热门关键词视图"""
     try:
         logger.info("开始获取热门专业趋势")
 
-        # 使用正确的单连接方式
         async with db_cursor() as cursor:
-            # 基于关键词分析热门专业
-            query = """
-            SELECT 
-                t.keyword,
-                COUNT(p.id) as post_count,
-                AVG(p.like_count) as avg_likes
-            FROM tasks t
-            LEFT JOIN posts p ON t.id = p.task_id
-            WHERE t.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-            GROUP BY t.keyword
-            HAVING post_count > 0
-            ORDER BY post_count DESC, avg_likes DESC
-            LIMIT 10
-            """
-
-            logger.info(f"执行热门专业查询: {query}")
-            await cursor.execute(query)
+            # 使用热门关键词视图获取专业趋势，简化查询
+            await cursor.execute("""
+                SELECT keyword, post_count, avg_likes, total_likes
+                FROM v_hot_keywords
+                WHERE post_count > 0
+                ORDER BY post_count DESC, total_likes DESC
+                LIMIT 10
+            """)
+            
             results = await cursor.fetchall()
             logger.info(f"热门专业查询结果: {len(results)} 条记录")
 
             trending_majors = []
-            for keyword, post_count, avg_likes in results:
+            for keyword, post_count, avg_likes, total_likes in results:
                 major_info = extract_major_from_keyword(keyword)
                 if major_info:
                     growth = min(50, max(5, int((avg_likes or 0) / 100)))
@@ -186,35 +160,26 @@ async def get_trending_majors() -> ResponseModel:
 
 @router.get("/popular-cities", response_model=ResponseModel)
 async def get_popular_cities() -> ResponseModel:
-    """获取热门城市排行 - 公开访问"""
+    """获取热门城市排行 - 使用热门关键词视图"""
     try:
         logger.info("开始获取热门城市排行")
 
-        # 使用正确的单连接方式
         async with db_cursor() as cursor:
-            # 基于关键词中的城市信息统计
-            query = """
-            SELECT 
-                t.keyword,
-                COUNT(DISTINCT t.id) as school_count,
-                COUNT(p.id) as post_count
-            FROM tasks t
-            LEFT JOIN posts p ON t.id = p.task_id
-            WHERE t.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)
-            GROUP BY t.keyword
-            HAVING post_count > 0
-            ORDER BY post_count DESC
-            LIMIT 20
-            """
-
-            logger.info(f"执行热门城市查询: {query}")
-            await cursor.execute(query)
+            # 使用热门关键词视图简化城市查询
+            await cursor.execute("""
+                SELECT keyword, post_count, unique_posters
+                FROM v_hot_keywords
+                WHERE post_count > 0
+                ORDER BY post_count DESC, unique_posters DESC
+                LIMIT 20
+            """)
+            
             results = await cursor.fetchall()
             logger.info(f"热门城市查询结果: {len(results)} 条记录")
 
             # 统计城市数据
             city_stats = {}
-            for keyword, school_count, post_count in results:
+            for keyword, post_count, unique_posters in results:
                 city_info = extract_city_from_keyword(keyword)
                 if city_info:
                     city_name = city_info["name"]
@@ -222,12 +187,18 @@ async def get_popular_cities() -> ResponseModel:
                         city_stats[city_name] = {
                             "name": city_name,
                             "region": city_info["region"],
-                            "schools": 0
+                            "schools": 0,
+                            "total_posts": 0
                         }
-                    city_stats[city_name]["schools"] += school_count
+                    city_stats[city_name]["schools"] += 1
+                    city_stats[city_name]["total_posts"] += post_count
 
             # 排序并返回前5个城市
-            sorted_cities = sorted(city_stats.values(), key=lambda x: x["schools"], reverse=True)[:5]
+            sorted_cities = sorted(
+                city_stats.values(), 
+                key=lambda x: (x["total_posts"], x["schools"]), 
+                reverse=True
+            )[:5]
 
             return ResponseModel(success=True, data=sorted_cities)
 
@@ -238,31 +209,37 @@ async def get_popular_cities() -> ResponseModel:
 
 @router.get("/latest-news", response_model=ResponseModel)
 async def get_latest_news() -> ResponseModel:
-    """获取最新动态 - 公开访问"""
+    """获取最新动态 - 使用最近活动视图"""
     try:
         logger.info("开始获取最新动态")
 
-        # 使用正确的单连接方式
         async with db_cursor() as cursor:
-            # 获取最近的任务完成情况作为动态
-            query = """
-            SELECT 
-                id, keyword, status, posts_collected, created_at, end_time
-            FROM tasks
-            ORDER BY created_at DESC
-            LIMIT 10
-            """
-
-            logger.info(f"执行最新动态查询: {query}")
-            await cursor.execute(query)
+            # 使用最近活动视图获取动态
+            await cursor.execute("""
+                SELECT 
+                    activity_type, 
+                    title, 
+                    content, 
+                    activity_time, 
+                    activity_status
+                FROM v_recent_activities
+                ORDER BY activity_time DESC
+                LIMIT 10
+            """)
+            
             results = await cursor.fetchall()
             logger.info(f"最新动态查询结果: {len(results)} 条记录")
 
             latest_news = []
-            for task_id, keyword, status, posts_collected, created_at, end_time in results:
-                news_item = generate_news_from_task(task_id, keyword, status, posts_collected, created_at, end_time)
-                if news_item:
-                    latest_news.append(news_item)
+            for activity_type, title, content, activity_time, activity_status in results:
+                news_item = {
+                    "title": title or "系统动态",
+                    "summary": content or f"{activity_type}相关动态",
+                    "time": activity_time.strftime("%Y-%m-%d %H:%M") if activity_time else "",
+                    "type": activity_type or "info",
+                    "status": activity_status or "info"
+                }
+                latest_news.append(news_item)
 
             # 如果没有足够的真实数据，补充一些系统动态
             if len(latest_news) < 4:

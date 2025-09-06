@@ -18,56 +18,56 @@ class UserService:
         pass
 
     async def create_user(self, user_data: UserCreateAdmin) -> Optional[User]:
-        """创建用户"""
+        """创建用户 - 使用安全创建用户存储过程"""
         try:
             hashed_password = get_password_hash(user_data.password)
 
-            # 使用单一长连接的游标进行查询
+            # 使用安全的用户创建存储过程，自动处理重复检查和验证
             async with db_cursor() as cursor:
-                # 检查用户名是否已存在
-                check_sql = f"SELECT id FROM {settings.MYSQL_USER_TABLE} WHERE username = %s"
-                await cursor.execute(check_sql, [user_data.username])
-                if await cursor.fetchone():
-                    logger.warning(f"创建用户失败: 用户名已存在 - {user_data.username}")
-                    return None  # 用户已存在
-
-                # 检查邮箱是否已存在
-                check_email_sql = f"SELECT id FROM {settings.MYSQL_USER_TABLE} WHERE email = %s"
-                await cursor.execute(check_email_sql, [user_data.email])
-                if await cursor.fetchone():
-                    logger.warning(f"创建用户失败: 邮箱已存在 - {user_data.email}")
-                    return None  # 邮箱已存在
-
-                # 创建用户
-                insert_sql = f"""
-                INSERT INTO {settings.MYSQL_USER_TABLE} 
-                (username, email, password_hash, role, is_active, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """
-
-                now = datetime.now()
-                await cursor.execute(insert_sql, [
+                # 调用安全创建用户存储过程
+                await cursor.callproc('sp_create_user_safe', [
                     user_data.username,
-                    user_data.email,
+                    user_data.email, 
                     hashed_password,
                     user_data.role.value,
-                    True,
-                    now,
-                    now
+                    '@result',  # OUT参数：结果信息
+                    '@user_id'  # OUT参数：用户ID
                 ])
-
-                user_id = cursor.lastrowid
-                logger.info(f"用户创建成功: {user_data.username} (ID: {user_id})")
-
-                return User(
-                    id=user_id,
-                    username=user_data.username,
-                    email=user_data.email,
-                    role=user_data.role,
-                    is_active=True,
-                    created_at=now,
-                    updated_at=now
-                )
+                
+                # 获取OUT参数结果
+                await cursor.execute("SELECT @result, @user_id")
+                result_row = await cursor.fetchone()
+                
+                if result_row:
+                    result_msg, user_id = result_row
+                    
+                    if result_msg.startswith('SUCCESS') and user_id:
+                        logger.info(f"用户创建成功: {user_data.username} (ID: {user_id})")
+                        
+                        # 查询创建的用户信息
+                        await cursor.execute("""
+                            SELECT username, email, role, is_active, created_at, updated_at 
+                            FROM users WHERE id = %s
+                        """, [user_id])
+                        
+                        user_row = await cursor.fetchone()
+                        if user_row:
+                            username, email, role, is_active, created_at, updated_at = user_row
+                            return User(
+                                id=user_id,
+                                username=username,
+                                email=email,
+                                role=UserRole(role),
+                                is_active=is_active,
+                                created_at=created_at,
+                                updated_at=updated_at
+                            )
+                    else:
+                        # 存储过程返回错误信息
+                        logger.warning(f"用户创建失败: {result_msg}")
+                        return None
+                
+                return None
         except Exception as e:
             logger.error(f"创建用户出错: {e}", exc_info=True)
             raise
@@ -152,3 +152,80 @@ class UserService:
             logger.error(f"获取用户出错: {e}", exc_info=True)
             # 返回None而不是抛出异常，避免影响API响应
             return None
+
+    async def get_user_statistics(self) -> Optional[dict]:
+        """获取用户统计信息 - 使用视图"""
+        try:
+            async with db_cursor() as cursor:
+                # 使用用户统计视图
+                await cursor.execute("SELECT * FROM v_user_active_stats")
+                stats_result = await cursor.fetchone()
+                
+                # 使用用户角色分布视图
+                await cursor.execute("SELECT role, user_count, percentage FROM v_user_role_distribution")
+                role_results = await cursor.fetchall()
+                
+                # 使用用户注册趋势视图（最近6个月）
+                await cursor.execute("SELECT month, new_users FROM v_user_registration_trend LIMIT 6")
+                trend_results = await cursor.fetchall()
+                
+                if stats_result:
+                    total_users, active_users, inactive_users, active_rate = stats_result
+                    
+                    return {
+                        "total_users": total_users,
+                        "active_users": active_users,
+                        "inactive_users": inactive_users,
+                        "active_rate": active_rate,
+                        "role_distribution": [
+                            {"role": role, "count": count, "percentage": percentage}
+                            for role, count, percentage in role_results
+                        ],
+                        "registration_trend": [
+                            {"month": month, "new_users": new_users}
+                            for month, new_users in trend_results
+                        ]
+                    }
+                return None
+        except Exception as e:
+            logger.error(f"获取用户统计信息出错: {e}", exc_info=True)
+            return None
+
+    async def update_user_status(self, user_id: int, is_active: bool) -> bool:
+        """更新用户状态 - 使用存储过程"""
+        try:
+            async with db_cursor() as cursor:
+                await cursor.callproc('sp_user_update_status', [user_id, is_active])
+                result = await cursor.fetchone()
+                
+                if result:
+                    logger.info(f"用户状态更新成功: {result[0]}")
+                    return True
+                return False
+        except Exception as e:
+            logger.error(f"更新用户状态出错: {e}", exc_info=True)
+            return False
+
+    async def get_user_details_by_identifier(self, identifier: str) -> Optional[User]:
+        """通过ID/用户名/邮箱获取用户详情 - 使用存储过程"""
+        try:
+            async with db_cursor() as cursor:
+                await cursor.callproc('sp_user_get_details', [identifier])
+                result = await cursor.fetchone()
+                
+                if result:
+                    (user_id, username, email, role, is_active, created_at, updated_at, 
+                     status_desc, role_desc, days_since_registration) = result
+                     
+                    return User(
+                        id=user_id,
+                        username=username,
+                        email=email,
+                        role=UserRole(role),
+                        is_active=is_active,
+                        created_at=created_at,
+                        updated_at=updated_at
+                    )
+                return None
+        except Exception as e:
+            logger.error(f"获取用户详情出错: {e}", exc_info=True)
