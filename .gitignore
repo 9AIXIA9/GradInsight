@@ -33,7 +33,6 @@ ehthumbs.db
 
 # 依赖管理
 /go-services/vendor/
-go.sum
 
 # --- Python ---
 # 编译文件
