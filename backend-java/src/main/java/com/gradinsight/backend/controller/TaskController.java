@@ -1,6 +1,7 @@
 package com.gradinsight.backend.controller;
 
 import com.gradinsight.backend.dto.TaskDTO;
+import com.gradinsight.backend.service.TaskService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -10,21 +11,27 @@ import java.util.List;
 @RequestMapping("/api/tasks")
 public class TaskController {
 
+    private final TaskService taskService;
+
+    public TaskController(TaskService taskService) {
+        this.taskService = taskService;
+    }
+
     @PostMapping
-    public ResponseEntity<?> createTask(@RequestBody TaskDTO task) {
-        // TODO: 保存任务并调用爬虫服务
-        return ResponseEntity.ok("created");
+    public ResponseEntity<TaskDTO> createTask(@RequestBody TaskDTO task) {
+        TaskDTO saved = taskService.save(task);
+        return ResponseEntity.ok(saved);
     }
 
     @GetMapping
     public ResponseEntity<List<TaskDTO>> listTasks() {
-        // TODO: 查询任务列表
-        return ResponseEntity.ok(List.of());
+        return ResponseEntity.ok(taskService.list());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<TaskDTO> getTask(@PathVariable Long id) {
-        // TODO: 返回任务详情
-        return ResponseEntity.ok(new TaskDTO());
+        TaskDTO t = taskService.findById(id);
+        if (t == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(t);
     }
 }

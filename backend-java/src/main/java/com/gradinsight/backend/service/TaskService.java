@@ -1,0 +1,55 @@
+package com.gradinsight.backend.service;
+
+import com.gradinsight.backend.dto.TaskDTO;
+import com.gradinsight.backend.entity.Task;
+import com.gradinsight.backend.repository.TaskRepository;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class TaskService {
+
+    private final TaskRepository repo;
+
+    public TaskService(TaskRepository repo) {
+        this.repo = repo;
+    }
+
+    public TaskDTO save(TaskDTO dto) {
+        Task t = fromDto(dto);
+        Task saved = repo.save(t);
+        return toDto(saved);
+    }
+
+    public List<TaskDTO> list() {
+        return repo.findAll().stream().map(this::toDto).collect(Collectors.toList());
+    }
+
+    public TaskDTO findById(Long id) {
+        return repo.findById(id).map(this::toDto).orElse(null);
+    }
+
+    private TaskDTO toDto(Task t) {
+        TaskDTO dto = new TaskDTO();
+        dto.setId(t.getId());
+        dto.setName(t.getName());
+        dto.setSource(t.getSource());
+        dto.setKeywords(t.getKeywords());
+        dto.setStatus(t.getStatus());
+        dto.setCreatedAt(t.getCreatedAt());
+        return dto;
+    }
+
+    private Task fromDto(TaskDTO dto) {
+        Task t = new Task();
+        t.setId(dto.getId());
+        t.setName(dto.getName());
+        t.setSource(dto.getSource());
+        t.setKeywords(dto.getKeywords());
+        t.setStatus(dto.getStatus());
+        t.setCreatedAt(dto.getCreatedAt());
+        return t;
+    }
+}
