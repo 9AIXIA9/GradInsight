@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS tasks
     comments_per_post BIGINT UNSIGNED          DEFAULT 0 COMMENT '每个帖子的评论数',
     include_comments  BOOLEAN                  DEFAULT FALSE COMMENT '是否包含评论',
     include_images    BOOLEAN                  DEFAULT FALSE COMMENT '是否包含图片',
+    crawler_task_id   VARCHAR(64)              DEFAULT NULL COMMENT '外部爬虫服务任务ID',
     created_at        TIMESTAMP                DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at        TIMESTAMP                DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     INDEX idx_parent_id (parent_id),

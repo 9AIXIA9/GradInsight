@@ -26,13 +26,13 @@ public class TaskService {
 
         // 发起 gRPC 调用下发爬虫任务（异步/同步可根据需要调整）
         try {
-            crawler.Crawler.CrawlRequest req = crawler.Crawler.CrawlRequest.newBuilder()
+                crawler.Crawler.CrawlRequest req = crawler.Crawler.CrawlRequest.newBuilder()
                     .setSite(crawler.Crawler.Site.XIAOHONGSHU)
-                    .setKeyword(saved.getKeywords() == null ? "" : saved.getKeywords())
-                    .setPostCount(100)
-                    .setMinLikes(0)
-                    .setIncludeComments(true)
-                    .setIncludeImages(false)
+                    .setKeyword(saved.getKeyword() == null ? "" : saved.getKeyword())
+                    .setPostCount(saved.getPostCount() == null ? 100 : saved.getPostCount())
+                    .setMinLikes(saved.getMinLikes() == null ? 0 : saved.getMinLikes())
+                    .setIncludeComments(saved.getIncludeComments() == null ? true : saved.getIncludeComments())
+                    .setIncludeImages(saved.getIncludeImages() == null ? false : saved.getIncludeImages())
                     .build();
 
             crawler.Crawler.CrawlResponse resp = crawlerGrpcClient.startCrawl(req);
