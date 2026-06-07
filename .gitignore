@@ -142,3 +142,13 @@ coverage/
 *.rar
 *.tar
 *.zip
+
+# --- Java / Maven ---
+**/target/
+*.class
+*.war
+*.ear
+.mvn/wrapper/maven-wrapper.jar
+
+# Generated helper artifacts
+*.generated.txt
