@@ -12,11 +12,11 @@ import java.util.stream.Collectors;
 public class TaskService {
 
     private final TaskRepository repo;
-    private final com.gradinsight.backend.grpc.CrawlerGrpcClient crawlerGrpcClient;
+    private final CrawlerDispatchService dispatchService;
 
-    public TaskService(TaskRepository repo, com.gradinsight.backend.grpc.CrawlerGrpcClient crawlerGrpcClient) {
+    public TaskService(TaskRepository repo, CrawlerDispatchService dispatchService) {
         this.repo = repo;
-        this.crawlerGrpcClient = crawlerGrpcClient;
+        this.dispatchService = dispatchService;
     }
 
     public TaskDTO save(TaskDTO dto) {
@@ -24,24 +24,18 @@ public class TaskService {
         Task saved = repo.save(t);
         TaskDTO out = toDto(saved);
 
-        // 发起 gRPC 调用下发爬虫任务（异步/同步可根据需要调整）
-        try {
-                crawler.Crawler.CrawlRequest req = crawler.Crawler.CrawlRequest.newBuilder()
-                    .setSite(crawler.Crawler.Site.XIAOHONGSHU)
-                    .setKeyword(saved.getKeyword() == null ? "" : saved.getKeyword())
-                    .setPostCount(saved.getPostCount() == null ? 100 : saved.getPostCount())
-                    .setMinLikes(saved.getMinLikes() == null ? 0 : saved.getMinLikes())
-                    .setIncludeComments(saved.getIncludeComments() == null ? true : saved.getIncludeComments())
-                    .setIncludeImages(saved.getIncludeImages() == null ? false : saved.getIncludeImages())
-                    .build();
+        // 异步下发：把任务状态置为 3 (待处理) 或特定值表示正在派发
+        saved.setStatus(3); // 3 - pending / dispatching
+        saved = repo.save(saved);
+        out = toDto(saved);
 
-            crawler.Crawler.CrawlResponse resp = crawlerGrpcClient.startCrawl(req);
-            saved.setCrawlerTaskId(resp.getTaskId());
-            saved.setStatus(resp.getSuccess() ? "DISPATCHED" : "FAILED_DISPATCH");
-            saved = repo.save(saved);
-            out = toDto(saved);
+        // 提交后台派发，不阻塞请求
+        try {
+            dispatchService.dispatch(saved);
         } catch (Exception ex) {
-            saved.setStatus("ERROR_DISPATCH");
+            // 如果提交异步失败，标记为错误
+            saved.setStatus(1);
+            saved.setErrorMsg(ex.getMessage());
             saved = repo.save(saved);
             out = toDto(saved);
         }
