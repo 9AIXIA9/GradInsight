@@ -1,5 +1,8 @@
 package com.gradinsight.backend.service;
 
+import crawler.CrawlRequest;
+import crawler.CrawlResponse;
+import crawler.Site;
 import com.gradinsight.backend.entity.Task;
 import com.gradinsight.backend.repository.TaskRepository;
 import com.gradinsight.backend.grpc.CrawlerGrpcClient;
@@ -28,8 +31,8 @@ public class CrawlerDispatchService {
             attempt++;
             try {
                 log.info("Dispatching task {} attempt {}", task.getId(), attempt);
-                crawler.Crawler.CrawlRequest req = crawler.Crawler.CrawlRequest.newBuilder()
-                        .setSite(task.getSite() == null ? crawler.Crawler.Site.XIAOHONGSHU : crawler.Crawler.Site.forNumber(task.getSite()))
+                CrawlRequest req = CrawlRequest.newBuilder()
+                        .setSite(task.getSite() == null ? Site.XIAOHONGSHU : Site.forNumber(task.getSite()))
                         .setKeyword(task.getKeyword() == null ? "" : task.getKeyword())
                         .setPostCount(task.getPostCount() == null ? 100 : task.getPostCount())
                         .setMinLikes(task.getMinLikes() == null ? 0 : task.getMinLikes())
@@ -37,7 +40,7 @@ public class CrawlerDispatchService {
                         .setIncludeImages(task.getIncludeImages() == null ? false : task.getIncludeImages())
                         .build();
 
-                crawler.Crawler.CrawlResponse resp = crawlerGrpcClient.startCrawl(req);
+                CrawlResponse resp = crawlerGrpcClient.startCrawl(req);
                 task.setCrawlerTaskId(resp.getTaskId());
                 task.setStatus(resp.getSuccess() ? 2 : 1); // 2 - running, 1 - failed
                 taskRepository.save(task);

@@ -37,6 +37,12 @@ public class Task {
     @Column(name = "error_msg", columnDefinition = "TEXT")
     private String errorMsg;
 
+    @Column(name = "name")
+    private String name;
+
+    @Column(name = "source")
+    private String source;
+
     private Integer site;
 
     /** keyword 对应脚本的 keyword */
