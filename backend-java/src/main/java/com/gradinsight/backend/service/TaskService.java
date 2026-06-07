@@ -12,15 +12,37 @@ import java.util.stream.Collectors;
 public class TaskService {
 
     private final TaskRepository repo;
+    private final com.gradinsight.backend.grpc.CrawlerGrpcClient crawlerGrpcClient;
 
-    public TaskService(TaskRepository repo) {
+    public TaskService(TaskRepository repo, com.gradinsight.backend.grpc.CrawlerGrpcClient crawlerGrpcClient) {
         this.repo = repo;
+        this.crawlerGrpcClient = crawlerGrpcClient;
     }
 
     public TaskDTO save(TaskDTO dto) {
         Task t = fromDto(dto);
         Task saved = repo.save(t);
-        return toDto(saved);
+        TaskDTO out = toDto(saved);
+
+        // 发起 gRPC 调用下发爬虫任务（异步/同步可根据需要调整）
+        try {
+            crawler.CrawlRequest req = crawler.CrawlRequest.newBuilder()
+                    .setSite(crawler.Site.XIAOHONGSHU)
+                    .setKeyword(saved.getKeywords() == null ? "" : saved.getKeywords())
+                    .setPostCount(100)
+                    .setMinLikes(0)
+                    .setIncludeComments(true)
+                    .setIncludeImages(false)
+                    .build();
+
+            crawler.CrawlResponse resp = crawlerGrpcClient.startCrawl(req);
+            out.setStatus(resp.getSuccess() ? "DISPATCHED" : "FAILED_DISPATCH");
+            // 可把 resp.getTaskId() 保存到任务表扩展字段中，或另建表记录
+        } catch (Exception ex) {
+            out.setStatus("ERROR_DISPATCH");
+        }
+
+        return out;
     }
 
     public List<TaskDTO> list() {
