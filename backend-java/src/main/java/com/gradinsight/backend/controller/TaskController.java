@@ -29,9 +29,20 @@ public class TaskController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TaskDTO> getTask(@PathVariable Long id) {
+    public ResponseEntity<TaskDTO> getTask(@PathVariable String id) {
         TaskDTO t = taskService.findById(id);
         if (t == null) return ResponseEntity.notFound().build();
         return ResponseEntity.ok(t);
+    }
+
+    @GetMapping("/{id}/status")
+    public ResponseEntity<?> getTaskStatus(@PathVariable String id) {
+        TaskDTO t = taskService.findById(id);
+        if (t == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(java.util.Map.of(
+                "id", t.getId(),
+                "status", t.getStatus(),
+                "crawlerTaskId", t.getCrawlerTaskId()
+        ));
     }
 }

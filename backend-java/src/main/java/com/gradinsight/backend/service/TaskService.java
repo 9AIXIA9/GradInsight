@@ -47,7 +47,7 @@ public class TaskService {
         return repo.findAll().stream().map(this::toDto).collect(Collectors.toList());
     }
 
-    public TaskDTO findById(Long id) {
+    public TaskDTO findById(String id) {
         return repo.findById(id).map(this::toDto).orElse(null);
     }
 
@@ -56,8 +56,8 @@ public class TaskService {
         dto.setId(t.getId());
         dto.setName(t.getName());
         dto.setSource(t.getSource());
-        dto.setKeywords(t.getKeywords());
-        dto.setStatus(t.getStatus());
+        dto.setKeyword(t.getKeyword());
+        dto.setStatus(t.getStatus() == null ? null : String.valueOf(t.getStatus()));
         dto.setCrawlerTaskId(t.getCrawlerTaskId());
         dto.setCreatedAt(t.getCreatedAt());
         return dto;
@@ -68,8 +68,13 @@ public class TaskService {
         t.setId(dto.getId());
         t.setName(dto.getName());
         t.setSource(dto.getSource());
-        t.setKeywords(dto.getKeywords());
-        t.setStatus(dto.getStatus());
+        t.setKeyword(dto.getKeyword());
+        if (dto.getStatus() != null) {
+            try {
+                t.setStatus(Integer.parseInt(dto.getStatus()));
+            } catch (NumberFormatException ignored) {
+            }
+        }
         t.setCrawlerTaskId(dto.getCrawlerTaskId());
         t.setCreatedAt(dto.getCreatedAt());
         return t;
