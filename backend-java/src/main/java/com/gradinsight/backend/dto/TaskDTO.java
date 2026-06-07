@@ -11,5 +11,6 @@ public class TaskDTO {
     private String source;
     private String keywords;
     private String status;
+    private String crawlerTaskId;
     private LocalDateTime createdAt;
 }

@@ -36,10 +36,14 @@ public class TaskService {
                     .build();
 
             crawler.Crawler.CrawlResponse resp = crawlerGrpcClient.startCrawl(req);
-            out.setStatus(resp.getSuccess() ? "DISPATCHED" : "FAILED_DISPATCH");
-            // 可把 resp.getTaskId() 保存到任务表扩展字段中，或另建表记录
+            saved.setCrawlerTaskId(resp.getTaskId());
+            saved.setStatus(resp.getSuccess() ? "DISPATCHED" : "FAILED_DISPATCH");
+            saved = repo.save(saved);
+            out = toDto(saved);
         } catch (Exception ex) {
-            out.setStatus("ERROR_DISPATCH");
+            saved.setStatus("ERROR_DISPATCH");
+            saved = repo.save(saved);
+            out = toDto(saved);
         }
 
         return out;
@@ -60,6 +64,7 @@ public class TaskService {
         dto.setSource(t.getSource());
         dto.setKeywords(t.getKeywords());
         dto.setStatus(t.getStatus());
+        dto.setCrawlerTaskId(t.getCrawlerTaskId());
         dto.setCreatedAt(t.getCreatedAt());
         return dto;
     }
@@ -71,6 +76,7 @@ public class TaskService {
         t.setSource(dto.getSource());
         t.setKeywords(dto.getKeywords());
         t.setStatus(dto.getStatus());
+        t.setCrawlerTaskId(dto.getCrawlerTaskId());
         t.setCreatedAt(dto.getCreatedAt());
         return t;
     }
