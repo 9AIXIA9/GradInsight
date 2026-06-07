@@ -45,4 +45,47 @@ public class TaskController {
                 "crawlerTaskId", t.getCrawlerTaskId()
         ));
     }
+
+    @PatchMapping("/{id}/pause")
+    public ResponseEntity<TaskDTO> pauseTask(@PathVariable String id) {
+        TaskDTO t = taskService.pause(id);
+        if (t == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(t);
+    }
+
+    @PatchMapping("/{id}/resume")
+    public ResponseEntity<TaskDTO> resumeTask(@PathVariable String id) {
+        TaskDTO t = taskService.resume(id);
+        if (t == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(t);
+    }
+
+    @PatchMapping("/{id}/cancel")
+    public ResponseEntity<TaskDTO> cancelTask(@PathVariable String id) {
+        TaskDTO t = taskService.cancel(id);
+        if (t == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(t);
+    }
+
+    @PostMapping("/{id}/retry")
+    public ResponseEntity<TaskDTO> retryTask(@PathVariable String id) {
+        TaskDTO t = taskService.retry(id);
+        if (t == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(t);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteTask(@PathVariable String id) {
+        // simple delete
+        TaskDTO t = taskService.findById(id);
+        if (t == null) return ResponseEntity.notFound().build();
+        taskService.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/logs")
+    public ResponseEntity<?> getTaskLogs(@PathVariable String id) {
+        var logs = taskService.getLogs(id);
+        return ResponseEntity.ok(logs);
+    }
 }

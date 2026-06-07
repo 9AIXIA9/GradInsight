@@ -317,3 +317,76 @@ async def delete_analysis(
             status_code=500,
             detail=f"删除分析结果失败: {str(e)}"
         )
+
+
+# 兼容其他语言微服务的轻量端点（无需用户认证），供 Java/gRPC 网关直接调用
+@router.post("/cluster")
+async def cluster_proxy(payload: dict, analysis_service: ContentAnalysisService = Depends(get_analysis_service)) -> ResponseModel:
+    """
+    兼容接口：执行内容聚类（并可同时返回关键词），对外开放给内部服务调用（无需JWT）。
+    支持payload字段：`task_id`, `keyword_filter`, `min_posts`。
+    """
+    try:
+        task_id = payload.get('task_id') if payload.get('task_id') else None
+        keyword = payload.get('keyword_filter') or payload.get('keyword')
+        min_posts = int(payload.get('min_posts', 2))
+
+        request = AnalysisRequest(
+            task_id=task_id,
+            analysis_types=[AnalysisType.CONTENT_CLUSTERING, AnalysisType.KEYWORD_EXTRACTION],
+            keyword_filter=keyword,
+            min_posts=min_posts
+        )
+
+        result = await analysis_service.analyze_content(request)
+        return ResponseModel(success=True, message="cluster analysis complete", data=result)
+
+    except Exception as e:
+        logger.error(f"cluster proxy failed: {e}", exc_info=True)
+        return ResponseModel(success=False, message=str(e), data=None)
+
+
+@router.post("/keywords")
+async def keywords_proxy(payload: dict, analysis_service: ContentAnalysisService = Depends(get_analysis_service)) -> ResponseModel:
+    """兼容接口：提取关键词（Keywords）"""
+    try:
+        task_id = payload.get('task_id') if payload.get('task_id') else None
+        keyword = payload.get('keyword_filter') or payload.get('keyword')
+        min_posts = int(payload.get('min_posts', 2))
+
+        request = AnalysisRequest(
+            task_id=task_id,
+            analysis_types=[AnalysisType.KEYWORD_EXTRACTION],
+            keyword_filter=keyword,
+            min_posts=min_posts
+        )
+
+        result = await analysis_service.analyze_content(request)
+        return ResponseModel(success=True, message="keyword extraction complete", data=result)
+
+    except Exception as e:
+        logger.error(f"keywords proxy failed: {e}", exc_info=True)
+        return ResponseModel(success=False, message=str(e), data=None)
+
+
+@router.post("/sentiment")
+async def sentiment_proxy(payload: dict, analysis_service: ContentAnalysisService = Depends(get_analysis_service)) -> ResponseModel:
+    """兼容接口：情感分析（Sentiment）"""
+    try:
+        task_id = payload.get('task_id') if payload.get('task_id') else None
+        keyword = payload.get('keyword_filter') or payload.get('keyword')
+        min_posts = int(payload.get('min_posts', 2))
+
+        request = AnalysisRequest(
+            task_id=task_id,
+            analysis_types=[AnalysisType.SENTIMENT_ANALYSIS],
+            keyword_filter=keyword,
+            min_posts=min_posts
+        )
+
+        result = await analysis_service.analyze_content(request)
+        return ResponseModel(success=True, message="sentiment analysis complete", data=result)
+
+    except Exception as e:
+        logger.error(f"sentiment proxy failed: {e}", exc_info=True)
+        return ResponseModel(success=False, message=str(e), data=None)
