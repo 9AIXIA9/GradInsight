@@ -39,7 +39,16 @@ public class AuthController {
                     .body(Map.of("detail", "用户名或密码错误"));
         }
         String token = jwtUtil.generateToken(u.getUsername());
-        return ResponseEntity.ok(new AuthResponse(token));
+        return ResponseEntity.ok(Map.of(
+            "access_token", token,
+            "token_type", "bearer",
+            "user", Map.of(
+                "id", u.getId(),
+                "username", u.getUsername(),
+                "email", u.getEmail() != null ? u.getEmail() : "",
+                "role", u.getRole() != null ? u.getRole() : "user"
+            )
+        ));
     }
 
     @PostMapping("/register")
