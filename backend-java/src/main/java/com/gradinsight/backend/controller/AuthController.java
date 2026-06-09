@@ -88,4 +88,9 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("detail", "token 解析失败"));
         }
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout() {
+        return ResponseEntity.ok(Map.of("success", true, "message", "已退出"));
+    }
 }

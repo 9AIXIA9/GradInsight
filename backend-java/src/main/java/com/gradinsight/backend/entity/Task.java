@@ -12,7 +12,7 @@ import java.util.UUID;
 public class Task {
     @Id
     @Column(length = 64)
-    private String id; // 对应 SQL 脚本中的 VARCHAR(64) 主键
+    private String id;
 
     @Column(name = "parent_id", length = 64)
     private String parentId;
@@ -20,10 +20,8 @@ public class Task {
     @Column(name = "wait_sub_count")
     private Long waitSubCount = 0L;
 
-    /**
-     * status: 与脚本保持一致为 int
-     */
-    private Integer status = 3; // 默认待处理
+    /** 0-完成 1-失败 2-运行中 3-待处理 4-分治 */
+    private Integer status = 3;
 
     @Column(name = "posts_collected")
     private Integer postsCollected = 0;
@@ -37,15 +35,10 @@ public class Task {
     @Column(name = "error_msg", columnDefinition = "TEXT")
     private String errorMsg;
 
-    @Column(name = "name")
-    private String name;
-
-    @Column(name = "source")
-    private String source;
-
+    /** 站点: 0-小红书 */
+    @Column(name = "site")
     private Integer site;
 
-    /** keyword 对应脚本的 keyword */
     @Column(name = "keyword")
     private String keyword;
 
@@ -79,6 +72,7 @@ public class Task {
     @PrePersist
     public void prePersist() {
         if (this.createdAt == null) this.createdAt = LocalDateTime.now();
+        if (this.startTime == null) this.startTime = LocalDateTime.now();
         if (this.id == null) this.id = UUID.randomUUID().toString();
     }
 

@@ -53,8 +53,6 @@ public class CrawlerController {
             task.setIncludeComments(includeComments);
             task.setIncludeImages(includeImages);
             task.setStatus(3); // pending
-            task.setName(keyword);
-            task.setSource(site != null && site == 0 ? "xiaohongshu" : "unknown");
 
             Task saved = taskRepository.save(task);
 
@@ -145,7 +143,8 @@ public class CrawlerController {
                     dto.setCompletedAt(t.getEndTime());
                     dto.setUpdatedAt(t.getUpdatedAt());
                     dto.setErrorMessage(t.getErrorMsg());
-                    dto.setSource(t.getSource());
+                    dto.setName(t.getKeyword());
+                    dto.setSource(t.getSite() != null && t.getSite() == 0 ? "xiaohongshu" : "");
                     return ResponseEntity.ok(dto);
                 })
                 .orElse(ResponseEntity.notFound().build());

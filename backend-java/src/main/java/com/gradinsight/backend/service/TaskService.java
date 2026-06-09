@@ -130,8 +130,9 @@ public class TaskService {
         TaskDTO dto = new TaskDTO();
         dto.setId(t.getId());
         dto.setTaskId(t.getId());          // 兼容字段
-        dto.setName(t.getName());
-        dto.setSource(t.getSource());
+        // name/source 从其他字段派生（DDL 中无独立列）
+        dto.setName(t.getKeyword());
+        dto.setSource(t.getSite() != null && t.getSite() == 0 ? "xiaohongshu" : "unknown");
         dto.setKeyword(t.getKeyword());
         dto.setSite(t.getSite());
         dto.setPostCount(t.getPostCount() != null ? t.getPostCount().intValue() : null);
@@ -153,8 +154,6 @@ public class TaskService {
     private Task fromDto(TaskDTO dto) {
         Task t = new Task();
         t.setId(dto.getId());
-        t.setName(dto.getName());
-        t.setSource(dto.getSource());
         t.setKeyword(dto.getKeyword());
         t.setSite(dto.getSite());
         t.setPostCount(dto.getPostCount() != null ? Long.valueOf(dto.getPostCount()) : null);

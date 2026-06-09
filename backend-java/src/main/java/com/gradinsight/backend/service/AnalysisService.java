@@ -3,7 +3,7 @@ package com.gradinsight.backend.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -16,38 +16,37 @@ public class AnalysisService {
     private final RestTemplate restTemplate;
     private final String baseUrl;
 
-    public AnalysisService(RestTemplate restTemplate, @Value("${analysis.service.url}") String baseUrl) {
+    public AnalysisService(RestTemplate restTemplate,
+                           @Value("${analysis.service.url}") String baseUrl) {
         this.restTemplate = restTemplate;
-        this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length()-1) : baseUrl;
+        this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
     }
 
-    public Map<?,?> cluster(Object payload) {
+    /** POST proxy */
+    public Map<?, ?> post(String path, Object payload) {
         try {
-            ResponseEntity<Map> resp = restTemplate.postForEntity(baseUrl + "/cluster", payload, Map.class);
+            ResponseEntity<Map> resp = restTemplate.postForEntity(
+                    baseUrl + path, payload, Map.class);
             return resp.getBody();
         } catch (Exception ex) {
-            log.error("cluster call failed", ex);
+            log.error("analysis POST {} failed", path, ex);
             return Map.of("success", false, "error", ex.getMessage());
         }
     }
 
-    public Map<?,?> keywords(Object payload) {
+    /** GET proxy */
+    public Map<?, ?> get(String path) {
         try {
-            ResponseEntity<Map> resp = restTemplate.postForEntity(baseUrl + "/keywords", payload, Map.class);
+            ResponseEntity<Map> resp = restTemplate.getForEntity(
+                    baseUrl + path, Map.class);
             return resp.getBody();
         } catch (Exception ex) {
-            log.error("keywords call failed", ex);
+            log.error("analysis GET {} failed", path, ex);
             return Map.of("success", false, "error", ex.getMessage());
         }
     }
 
-    public Map<?,?> sentiment(Object payload) {
-        try {
-            ResponseEntity<Map> resp = restTemplate.postForEntity(baseUrl + "/sentiment", payload, Map.class);
-            return resp.getBody();
-        } catch (Exception ex) {
-            log.error("sentiment call failed", ex);
-            return Map.of("success", false, "error", ex.getMessage());
-        }
-    }
+    public Map<?, ?> cluster(Object payload) { return post("/cluster", payload); }
+    public Map<?, ?> keywords(Object payload) { return post("/keywords", payload); }
+    public Map<?, ?> sentiment(Object payload) { return post("/sentiment", payload); }
 }
