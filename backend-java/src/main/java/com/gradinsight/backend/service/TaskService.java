@@ -129,12 +129,24 @@ public class TaskService {
     private TaskDTO toDto(Task t) {
         TaskDTO dto = new TaskDTO();
         dto.setId(t.getId());
+        dto.setTaskId(t.getId());          // 兼容字段
         dto.setName(t.getName());
         dto.setSource(t.getSource());
         dto.setKeyword(t.getKeyword());
-        dto.setStatus(t.getStatus() == null ? null : String.valueOf(t.getStatus()));
+        dto.setSite(t.getSite());
+        dto.setPostCount(t.getPostCount() != null ? t.getPostCount().intValue() : null);
+        dto.setIncludeComments(t.getIncludeComments());
+        dto.setCommentsPerPost(t.getCommentsPerPost() != null ? t.getCommentsPerPost().intValue() : null);
+        dto.setMinLikes(t.getMinLikes() != null ? t.getMinLikes().intValue() : null);
+        dto.setCommentMinLikes(t.getCommentMinLikes() != null ? t.getCommentMinLikes().intValue() : null);
+        dto.setIncludeImages(t.getIncludeImages());
+        dto.setStatus(t.getStatus());       // int, not String
         dto.setCrawlerTaskId(t.getCrawlerTaskId());
+        dto.setPostsCollected(t.getPostsCollected());
+        dto.setErrorMessage(t.getErrorMsg());
         dto.setCreatedAt(t.getCreatedAt());
+        dto.setCompletedAt(t.getEndTime());
+        dto.setUpdatedAt(t.getUpdatedAt());
         return dto;
     }
 
@@ -144,14 +156,20 @@ public class TaskService {
         t.setName(dto.getName());
         t.setSource(dto.getSource());
         t.setKeyword(dto.getKeyword());
-        if (dto.getStatus() != null) {
-            try {
-                t.setStatus(Integer.parseInt(dto.getStatus()));
-            } catch (NumberFormatException ignored) {
-            }
-        }
+        t.setSite(dto.getSite());
+        t.setPostCount(dto.getPostCount() != null ? Long.valueOf(dto.getPostCount()) : null);
+        t.setIncludeComments(dto.getIncludeComments());
+        t.setCommentsPerPost(dto.getCommentsPerPost() != null ? Long.valueOf(dto.getCommentsPerPost()) : null);
+        t.setMinLikes(dto.getMinLikes() != null ? Long.valueOf(dto.getMinLikes()) : null);
+        t.setCommentMinLikes(dto.getCommentMinLikes() != null ? Long.valueOf(dto.getCommentMinLikes()) : null);
+        t.setIncludeImages(dto.getIncludeImages());
+        if (dto.getStatus() != null) t.setStatus(dto.getStatus());
         t.setCrawlerTaskId(dto.getCrawlerTaskId());
+        t.setPostsCollected(dto.getPostsCollected());
+        t.setErrorMsg(dto.getErrorMessage());
         t.setCreatedAt(dto.getCreatedAt());
+        t.setEndTime(dto.getCompletedAt());
+        t.setUpdatedAt(dto.getUpdatedAt());
         return t;
     }
 

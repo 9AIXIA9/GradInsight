@@ -401,7 +401,7 @@ const loadRecentTasks = async () => {
     })
 
     if (response.success) {
-      recentTasks.value = response.data.items || []
+      recentTasks.value = response.data.tasks || []
     }
   } catch (err) {
     console.error('加载最近任务失败:', err)

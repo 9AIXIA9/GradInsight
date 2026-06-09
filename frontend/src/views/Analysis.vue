@@ -649,11 +649,11 @@ const loadAnalysisHistory = async () => {
 
 const loadTasks = async () => {
   try {
-    const response = await apiClient.get('/crawler/tasks', {
+    const response = await apiClient.get('/api/crawler/tasks', {
       params: { limit: 50, status: 0 } // 只加载已完成的任务
     })
     if (response.success) {
-      availableTasks.value = response.data.items || []
+      availableTasks.value = response.data.tasks || []
     }
   } catch (err) {
     console.error('加载任务列表失败:', err)
