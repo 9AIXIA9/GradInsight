@@ -72,6 +72,7 @@ public class AuthController {
             UserDTO dto = new UserDTO();
             dto.setId(u.getId());
             dto.setUsername(u.getUsername());
+            dto.setEmail(u.getEmail());
             dto.setRole(u.getRole());
             return ResponseEntity.ok(dto);
         } catch (Exception e) {

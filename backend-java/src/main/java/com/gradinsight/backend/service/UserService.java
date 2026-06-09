@@ -27,11 +27,16 @@ public class UserService {
         User u = new User();
         u.setUsername(dto.getUsername());
         u.setPassword(passwordEncoder.encode(dto.getPassword()));
-        u.setRole(dto.getRole() == null ? "USER" : dto.getRole());
+        u.setRole(dto.getRole() == null ? "user" : dto.getRole());
+        // email: use provided or generate default
+        u.setEmail(dto.getEmail() != null && !dto.getEmail().isBlank()
+                ? dto.getEmail() : dto.getUsername() + "@gradinsight.com");
+        u.setIsActive(true);
         User saved = repo.save(u);
         UserDTO out = new UserDTO();
         out.setId(saved.getId());
         out.setUsername(saved.getUsername());
+        out.setEmail(saved.getEmail());
         out.setRole(saved.getRole());
         return out;
     }
