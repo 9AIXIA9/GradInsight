@@ -32,9 +32,9 @@ export const useUserStore = defineStore('user', () => {
     try {
       const response = await authService.login(credentials)
       if (response.success) {
-        // 修改：登录成功后，token在response.data中
+        // Java 后端 AuthResponse 返回 { token: "..." }
         const tokenData = response.data
-        setToken(tokenData.access_token)
+        setToken(tokenData.token)
 
         // 登录成功后获取用户信息
         const userResponse = await authService.getCurrentUser()
