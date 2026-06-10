@@ -83,23 +83,42 @@ public class AnalysisController {
         if (rows.isEmpty()) return ResponseEntity.notFound().build();
 
         var result = new LinkedHashMap<>(rows.get(0));
-        result.put("topic_summaries", jdbc.queryForList(
-                "SELECT * FROM topic_summaries WHERE analysis_id = ?", analysisId));
-        result.put("content_clusters", jdbc.queryForList(
-                "SELECT * FROM content_clusters WHERE analysis_id = ?", analysisId));
-        result.put("keyword_frequencies", jdbc.queryForList(
-                "SELECT * FROM keyword_frequencies WHERE analysis_id = ?", analysisId));
-        result.put("sentiment_analysis", jdbc.queryForList(
-                "SELECT * FROM sentiment_analysis WHERE analysis_id = ?", analysisId));
-        result.put("university_mentions", jdbc.queryForList(
-                "SELECT * FROM university_mentions WHERE analysis_id = ?", analysisId));
-        result.put("major_analysis", jdbc.queryForList(
-                "SELECT * FROM major_analysis WHERE analysis_id = ?", analysisId));
+        result.put("topic_summaries", parseJsonFields(jdbc.queryForList(
+                "SELECT * FROM topic_summaries WHERE analysis_id = ?", analysisId),
+                "main_points", "related_universities", "related_majors"));
+        result.put("content_clusters", parseJsonFields(jdbc.queryForList(
+                "SELECT * FROM content_clusters WHERE analysis_id = ?", analysisId),
+                "post_ids", "keywords"));
+        result.put("keyword_frequencies", parseJsonFields(jdbc.queryForList(
+                "SELECT * FROM keyword_frequencies WHERE analysis_id = ?", analysisId),
+                "related_posts"));
+        result.put("sentiment_analysis", parseJsonFields(jdbc.queryForList(
+                "SELECT * FROM sentiment_analysis WHERE analysis_id = ?", analysisId),
+                "emotion_keywords"));
+        result.put("university_mentions", parseJsonFields(jdbc.queryForList(
+                "SELECT * FROM university_mentions WHERE analysis_id = ?", analysisId),
+                "related_topics", "post_ids"));
+        result.put("major_analysis", parseJsonFields(jdbc.queryForList(
+                "SELECT * FROM major_analysis WHERE analysis_id = ?", analysisId),
+                "related_universities", "key_discussions"));
         result.put("insights", jdbc.queryForList(
                 "SELECT insight_text FROM analysis_insights WHERE analysis_id = ?", analysisId)
                 .stream().map(m -> m.get("insight_text")).toList());
 
         return ResponseEntity.ok(Map.of("success", true, "data", result));
+    }
+
+    private List<Map<String, Object>> parseJsonFields(List<Map<String, Object>> rows, String... jsonFields) {
+        for (var row : rows) {
+            for (String f : jsonFields) {
+                Object v = row.get(f);
+                if (v instanceof String s && !s.isBlank() && s.startsWith("[")) {
+                    try { row.put(f, new com.fasterxml.jackson.databind.ObjectMapper().readValue(s, List.class)); }
+                    catch (Exception ignored) {}
+                }
+            }
+        }
+        return rows;
     }
 
     @DeleteMapping("/analysis/{analysisId}")
