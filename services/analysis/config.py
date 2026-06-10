@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 
     # ---- 分页 ----
     DEFAULT_PAGE_SIZE: int = Field(default=20)
-    MAX_PAGE_SIZE: int = Field(default=100)
+    MAX_PAGE_SIZE: int = Field(default=5000)
 
     # ---- 排序 ----
     POST_SORT_FIELD: str = Field(default="time")
