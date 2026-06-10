@@ -62,7 +62,15 @@ func (tq *TaskQueue) AddTask(task *domain.Task) error {
 	logx.Infof("收到任务：%v", task.ID)
 	task.StartTime = time.Now()
 	task.Status = domain.StatusPending
-	return tq.sendTaskToQueue(task)
+
+	// 一次性入队多份，让多个 worker 并发抢同一任务
+	workers := cap(tq.workerPool)
+	for i := 0; i < workers; i++ {
+		if err := tq.sendTaskToQueue(task); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (tq *TaskQueue) Stop(ctx context.Context) {
@@ -114,53 +122,53 @@ func (tq *TaskQueue) sendTaskToQueue(task *domain.Task) error {
 func (tq *TaskQueue) ProcessTask(task *domain.Task) {
 	defer func() { tq.finalizeTask(task) }()
 
-	for {
-		// 1. 获取爬虫资源
-		s, err := tq.prepareSite(task)
-		if err != nil {
-			task.Err = err
-			return
-		}
+	// 1. 获取爬虫资源
+	s, err := tq.prepareSite(task)
+	if err != nil {
+		task.Err = err
+		return
+	}
 
-		resource, err := tq.acquireResource(task)
-		if err != nil {
-			task.Err = err
-			return
-		}
-		if resource == nil || task.Status == domain.StatusPending {
-			return
-		}
+	resource, err := tq.acquireResource(task)
+	if err != nil {
+		task.Err = err
+		return
+	}
+	if resource == nil || task.Status == domain.StatusPending {
+		return
+	}
 
-		// 2. 爬取链接（最多 batchSize 篇）
-		links, err := tq.crawler.CollectPostLinks(resource.Browser(), tq.filter, s, task.Keyword, tq.batchSize, task.MinLikes)
-		if err != nil {
-			tq.resourcePool.Put(resource)
-			task.Err = fmt.Errorf("收集链接失败: %w", err)
-			return
-		}
-
-		// 3. 爬取详情
-		batchStart := task.PostsCollected
-		posts := tq.collectPosts(resource, s, links, task)
+	// 2. 爬取链接（最多 batchSize 篇）
+	links, err := tq.crawler.CollectPostLinks(resource.Browser(), tq.filter, s, task.Keyword, tq.batchSize, task.MinLikes)
+	if err != nil {
 		tq.resourcePool.Put(resource)
-		batchCrawled := task.PostsCollected - batchStart
+		task.Err = fmt.Errorf("收集链接失败: %w", err)
+		return
+	}
 
-		// 4. 保存 + 原子报进度
-		tq.saveCrawlResults(task, posts)
-		done, err := tq.repo.ReportProgress(context.Background(), task.ID, batchCrawled)
-		if err != nil {
-			task.Err = fmt.Errorf("报进度失败: %w", err)
-			return
-		}
+	// 3. 爬取详情（本地计数，避免并发写 task.PostsCollected）
+	posts, batchCrawled := tq.collectPosts(resource, s, links, task)
+	tq.resourcePool.Put(resource)
 
-		logx.Infof("任务 %v 本批+%d 篇，已爬 %d/%d", task.ID, batchCrawled, task.PostsCollected, task.PostCount)
+	// 4. 保存 + 原子报进度
+	tq.saveCrawlResults(task, posts)
+	done, err := tq.repo.ReportProgress(context.Background(), task.ID, batchCrawled)
+	if err != nil {
+		task.Err = fmt.Errorf("报进度失败: %w", err)
+		return
+	}
 
-		if done {
-			task.Status = domain.StatusCompleted
-			return
-		}
+	logx.Infof("任务 %v 本批+%d 篇（目标 %d）", task.ID, batchCrawled, task.PostCount)
 
-		// 配额还有剩余，继续循环
+	if done {
+		task.Status = domain.StatusCompleted
+		return
+	}
+
+	// 配额未满，重新入队让其他 worker 来抢
+	task.Status = domain.StatusPending
+	if err := tq.sendTaskToQueue(task); err != nil {
+		task.Err = err
 	}
 }
 
@@ -199,8 +207,9 @@ func (tq *TaskQueue) acquireResource(task *domain.Task) (domain.ResourceUnit, er
 	return resource, nil
 }
 
-func (tq *TaskQueue) collectPosts(resource domain.ResourceUnit, s domain.Site, links []string, task *domain.Task) []*domain.Post {
+func (tq *TaskQueue) collectPosts(resource domain.ResourceUnit, s domain.Site, links []string, task *domain.Task) ([]*domain.Post, uint32) {
 	posts := make([]*domain.Post, 0, len(links))
+	crawled := uint32(0)
 	for i, link := range links {
 		logx.Debugf("爬取 %d/%d: %s", i+1, len(links), link)
 		post, err := tq.crawler.CollectPostDetail(resource.Browser(), s, link, &domain.CollectPostDetailOption{
@@ -212,10 +221,10 @@ func (tq *TaskQueue) collectPosts(resource domain.ResourceUnit, s domain.Site, l
 			continue
 		}
 		posts = append(posts, post)
-		task.PostsCollected++
+		crawled++
 		logx.Infof("成功爬取: %s", post.Title)
 	}
-	return posts
+	return posts, crawled
 }
 
 func (tq *TaskQueue) saveCrawlResults(task *domain.Task, posts []*domain.Post) {
