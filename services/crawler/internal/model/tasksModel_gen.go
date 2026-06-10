@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	
+
 	"github.com/zeromicro/go-zero/core/stores/builder"
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlc"
@@ -20,9 +20,9 @@ import (
 
 var (
 	tasksFieldNames          = builder.RawFieldNames(&Tasks{})
-	tasksRows                = strings.Join(tasksFieldNames, ",")
-	tasksRowsExpectAutoSet   = strings.Join(stringx.Remove(tasksFieldNames, "`create_at`", "`create_time`", "`created_at`", "`update_at`", "`update_time`", "`updated_at`"), ",")
-	tasksRowsWithPlaceHolder = strings.Join(stringx.Remove(tasksFieldNames, "`id`", "`create_at`", "`create_time`", "`created_at`", "`update_at`", "`update_time`", "`updated_at`"), "=?,") + "=?"
+	tasksRows                = "`id`,`status`,`posts_collected`,`start_time`,`end_time`,`error_msg`,`site`,`keyword`,`post_count`,`min_likes`,`comment_min_likes`,`comments_per_post`,`include_comments`,`include_images`,`created_at`,`updated_at`"
+	tasksRowsExpectAutoSet   = "`id`,`status`,`posts_collected`,`start_time`,`end_time`,`error_msg`,`site`,`keyword`,`post_count`,`min_likes`,`comment_min_likes`,`comments_per_post`,`include_comments`,`include_images`"
+	tasksRowsWithPlaceHolder = "`status`=?,`posts_collected`=?,`start_time`=?,`end_time`=?,`error_msg`=?,`site`=?,`keyword`=?,`post_count`=?,`min_likes`=?,`comment_min_likes`=?,`comments_per_post`=?,`include_comments`=?,`include_images`=? where `id`=?"
 
 	cacheGradinsightTasksIdPrefix = "cache:gradinsight:tasks:id:"
 )
@@ -42,8 +42,6 @@ type (
 
 	Tasks struct {
 		Id              string         `db:"id"`                // 任务ID
-		ParentId        sql.NullString `db:"parent_id"`         // 父任务ID
-		WaitSubCount    uint64         `db:"wait_sub_count"`    // 等待的子任务数
 		Status          int64          `db:"status"`            // 任务状态: 0-已完成, 1-失败, 2-运行中, 3-待处理, 4-分治
 		PostsCollected  uint64         `db:"posts_collected"`   // 已收集的帖子数
 		StartTime       time.Time      `db:"start_time"`        // 开始时间
@@ -98,8 +96,8 @@ func (m *defaultTasksModel) FindOne(ctx context.Context, id string) (*Tasks, err
 func (m *defaultTasksModel) Insert(ctx context.Context, data *Tasks) (sql.Result, error) {
 	gradinsightTasksIdKey := fmt.Sprintf("%s%v", cacheGradinsightTasksIdPrefix, data.Id)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, tasksRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.Id, data.ParentId, data.WaitSubCount, data.Status, data.PostsCollected, data.StartTime, data.EndTime, data.ErrorMsg, data.Site, data.Keyword, data.PostCount, data.MinLikes, data.CommentMinLikes, data.CommentsPerPost, data.IncludeComments, data.IncludeImages)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, tasksRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.Id, data.Status, data.PostsCollected, data.StartTime, data.EndTime, data.ErrorMsg, data.Site, data.Keyword, data.PostCount, data.MinLikes, data.CommentMinLikes, data.CommentsPerPost, data.IncludeComments, data.IncludeImages)
 	}, gradinsightTasksIdKey)
 	return ret, err
 }
@@ -107,8 +105,8 @@ func (m *defaultTasksModel) Insert(ctx context.Context, data *Tasks) (sql.Result
 func (m *defaultTasksModel) Update(ctx context.Context, data *Tasks) error {
 	gradinsightTasksIdKey := fmt.Sprintf("%s%v", cacheGradinsightTasksIdPrefix, data.Id)
 	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, tasksRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, data.ParentId, data.WaitSubCount, data.Status, data.PostsCollected, data.StartTime, data.EndTime, data.ErrorMsg, data.Site, data.Keyword, data.PostCount, data.MinLikes, data.CommentMinLikes, data.CommentsPerPost, data.IncludeComments, data.IncludeImages, data.Id)
+		query := fmt.Sprintf("update %s set %s", m.table, tasksRowsWithPlaceHolder)
+		return conn.ExecCtx(ctx, query, data.Status, data.PostsCollected, data.StartTime, data.EndTime, data.ErrorMsg, data.Site, data.Keyword, data.PostCount, data.MinLikes, data.CommentMinLikes, data.CommentsPerPost, data.IncludeComments, data.IncludeImages, data.Id)
 	}, gradinsightTasksIdKey)
 	return err
 }

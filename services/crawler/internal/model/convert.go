@@ -33,8 +33,6 @@ func TaskFromDomain(task *domain.Task) *Tasks {
 
 	return &Tasks{
 		Id:              string(task.ID),
-		ParentId:        sql.NullString{},
-		WaitSubCount:    0,
 		Status:          int64(task.Status),
 		PostsCollected:  uint64(task.PostsCollected),
 		StartTime:       task.StartTime,

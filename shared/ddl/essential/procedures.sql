@@ -148,7 +148,6 @@ SELECT t.id,
         WHEN t.status = 1 THEN '失败'
         WHEN t.status = 2 THEN '运行中'
         WHEN t.status = 3 THEN '待处理'
-        WHEN t.status = 4 THEN '分治'
         ELSE '未知'
     END as status_desc,
     t.start_time,

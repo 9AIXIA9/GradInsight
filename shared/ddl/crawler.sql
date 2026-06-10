@@ -6,9 +6,7 @@ USE gradinsight;
 CREATE TABLE IF NOT EXISTS tasks
 (
     id                VARCHAR(64) PRIMARY KEY COMMENT '任务ID',
-    parent_id         VARCHAR(64)              DEFAULT NULL COMMENT '父任务ID',
-    wait_sub_count    BIGINT UNSIGNED          DEFAULT 0 COMMENT '等待的子任务数',
-    status            INT             NOT NULL DEFAULT 0 COMMENT '任务状态: 0-已完成, 1-失败, 2-运行中, 3-待处理, 4-分治',
+    status            INT             NOT NULL DEFAULT 3 COMMENT '任务状态: 0-已完成, 1-失败, 2-运行中, 3-待处理',
     posts_collected   INT UNSIGNED             DEFAULT 0 COMMENT '已收集的帖子数',
     start_time        DATETIME        NOT NULL COMMENT '开始时间',
     end_time          DATETIME                 DEFAULT NULL COMMENT '结束时间',
@@ -25,7 +23,6 @@ CREATE TABLE IF NOT EXISTS tasks
     crawler_task_id   VARCHAR(64)              DEFAULT NULL COMMENT '外部爬虫服务任务ID',
     created_at        TIMESTAMP                DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at        TIMESTAMP                DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    INDEX idx_parent_id (parent_id),
     INDEX idx_status (status),
     INDEX idx_keyword (keyword),
     INDEX idx_start_time (start_time)
