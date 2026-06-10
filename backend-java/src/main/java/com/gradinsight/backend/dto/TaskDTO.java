@@ -1,6 +1,7 @@
 package com.gradinsight.backend.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -9,26 +10,53 @@ import java.time.LocalDateTime;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class TaskDTO {
     private String id;
-    private String taskId;        // 兼容字段 = id
+
+    @JsonProperty("task_id")
+    private String taskId;
+
     private String name;
     private String source;
     private String keyword;
     private Integer site;
+
+    @JsonProperty("post_count")
     private Integer postCount;
+
+    @JsonProperty("include_comments")
     private Boolean includeComments;
+
+    @JsonProperty("comments_per_post")
     private Integer commentsPerPost;
+
+    @JsonProperty("min_likes")
     private Integer minLikes;
+
+    @JsonProperty("comment_min_likes")
     private Integer commentMinLikes;
+
+    @JsonProperty("include_images")
     private Boolean includeImages;
-    private Integer status;       // int: 0完成 1失败 2运行中 3已停止 4等待中
+
+    private Integer status;
+
+    @JsonProperty("crawler_task_id")
     private String crawlerTaskId;
+
+    @JsonProperty("posts_collected")
     private Integer postsCollected;
-    private String errorMessage;  // 对应 error_msg
+
+    @JsonProperty("error_message")
+    private String errorMessage;
+
+    @JsonProperty("created_at")
     private LocalDateTime createdAt;
-    private LocalDateTime completedAt;  // 对应 end_time
+
+    @JsonProperty("completed_at")
+    private LocalDateTime completedAt;
+
+    @JsonProperty("updated_at")
     private LocalDateTime updatedAt;
 
-    // 兼容 getter：前端访问 task_id 时返回 id
     public String getTaskId() {
         return taskId != null ? taskId : id;
     }
