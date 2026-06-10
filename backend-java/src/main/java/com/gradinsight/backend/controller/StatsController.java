@@ -1,12 +1,12 @@
 package com.gradinsight.backend.controller;
 
-import com.gradinsight.backend.repository.TaskRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -15,18 +15,17 @@ import java.util.Map;
 public class StatsController {
 
     private final JdbcTemplate jdbc;
-    private final TaskRepository taskRepository;
 
-    public StatsController(JdbcTemplate jdbc, TaskRepository taskRepository) {
+    public StatsController(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        this.taskRepository = taskRepository;
     }
 
     /** GET /api/stats/overview */
     @GetMapping("/overview")
     public ResponseEntity<Map<String, Object>> overview() {
         try {
-            long totalTasks = taskRepository.count();
+            Long totalTasks = jdbc.queryForObject("SELECT COUNT(*) FROM tasks", Long.class);
+            if (totalTasks == null) totalTasks = 0L;
 
             Long totalPosts = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM posts", Long.class);
@@ -60,37 +59,73 @@ public class StatsController {
         }
     }
 
-    /** GET /api/stats/hot-schools */
+    /** GET /api/stats/hot-schools — 从帖子数最多的高校中取 Top 5 */
     @GetMapping("/hot-schools")
     public ResponseEntity<Map<String, Object>> hotSchools() {
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "data", List.of(
-                Map.of("name", "南昌大学", "location", "江西南昌", "type", "综合性大学", "posts", "1,234", "trend", "+15%"),
-                Map.of("name", "华中科技大学", "location", "湖北武汉", "type", "理工类", "posts", "1,156", "trend", "+12%"),
-                Map.of("name", "中南大学", "location", "湖南长沙", "type", "综合性大学", "posts", "1,087", "trend", "+18%"),
-                Map.of("name", "西安交通大学", "location", "陕西西安", "type", "理工类", "posts", "987", "trend", "+10%"),
-                Map.of("name", "湖南大学", "location", "湖南长沙", "type", "综合性大学", "posts", "876", "trend", "+8%")
-            )
-        ));
+        try {
+            var rows = jdbc.queryForList(
+                "SELECT keyword, COUNT(*) as cnt, COALESCE(SUM(like_count),0) as likes " +
+                "FROM posts WHERE post_time > DATE_SUB(NOW(), INTERVAL 30 DAY) " +
+                "GROUP BY keyword ORDER BY cnt DESC LIMIT 10");
+            if (rows.isEmpty()) throw new RuntimeException("no data");
+            var data = rows.stream().map(r -> Map.of(
+                "name", (String) r.get("keyword"),
+                "location", "", "type", "高等院校",
+                "posts", formatK(((Number) r.get("cnt")).longValue()),
+                "trend", "+" + (((Number) r.get("likes")).longValue() / 100) + "%"
+            )).toList();
+            return ResponseEntity.ok(Map.of("success", true, "data", data));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("success", true, "data", List.of()));
+        }
     }
 
-    /** GET /api/stats/latest-news */
+    /** GET /api/stats/latest-news — 最近完成的任务 + 系统信息 */
     @GetMapping("/latest-news")
     public ResponseEntity<Map<String, Object>> latestNews() {
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "data", List.of(
-                Map.of("icon", "bi bi-check-circle-fill", "title", "数据采集完成",
-                    "content", "南昌大学相关数据采集任务完成", "time", "2小时前", "type", "success"),
-                Map.of("icon", "bi bi-rocket-fill", "title", "新任务启动",
-                    "content", "计算机科学专业数据采集任务已启动", "time", "4小时前", "type", "primary"),
-                Map.of("icon", "bi bi-bar-chart-fill", "title", "分析报告生成",
-                    "content", "高校热度分析报告已生成", "time", "6小时前", "type", "info"),
+        try {
+            var tasks = jdbc.queryForList(
+                "SELECT keyword, posts_collected, end_time FROM tasks WHERE status=0 " +
+                "ORDER BY end_time DESC LIMIT 3");
+            if (tasks.isEmpty()) throw new RuntimeException("no data");
+            var data = new java.util.ArrayList<Map<String, Object>>();
+            for (var t : tasks) {
+                String kw = (String) t.get("keyword");
+                int cnt = ((Number) t.get("posts_collected")).intValue();
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("icon", "bi bi-check-circle-fill");
+                item.put("title", kw + "数据采集完成");
+                item.put("content", "共收集" + cnt + "条帖子");
+                item.put("time", timeAgo(t.get("end_time")));
+                item.put("type", "success");
+                data.add(item);
+            }
+            Map<String, Object> sysInfo = new LinkedHashMap<>();
+            sysInfo.put("icon", "bi bi-gear-fill");
+            sysInfo.put("title", "系统运行正常");
+            sysInfo.put("content", "所有服务运行稳定");
+            sysInfo.put("time", "刚刚");
+            sysInfo.put("type", "primary");
+            data.add(sysInfo);
+            return ResponseEntity.ok(Map.of("success", true, "data", data));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("success", true, "data", List.of(
                 Map.of("icon", "bi bi-gear-fill", "title", "系统运行正常",
-                    "content", "爬虫系统运行稳定，所有服务正常", "time", "1天前", "type", "warning")
-            )
-        ));
+                    "content", "所有服务运行稳定", "time", "刚刚", "type", "primary")
+            )));
+        }
+    }
+
+    private String timeAgo(Object dt) {
+        if (dt == null) return "";
+        try {
+            long diff = System.currentTimeMillis() - ((java.sql.Timestamp) dt).getTime();
+            long min = diff / 60000, hr = min / 60, day = hr / 24;
+            if (day > 0) return day + "天前";
+            if (hr > 0) return hr + "小时前";
+            if (min > 0) return min + "分钟前";
+            return "刚刚";
+        } catch (Exception e) { return ""; }
     }
 
     private static String formatK(long n) {

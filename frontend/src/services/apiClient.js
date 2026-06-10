@@ -46,13 +46,11 @@ apiClient.interceptors.response.use(
     return data
   },
   (error) => {
+    // 401 只清 token，不硬跳转。路由守卫处理重定向
     if (error.response?.status === 401) {
-      // Token过期或无效，清除本地存储
       localStorage.removeItem('access_token')
-      window.location.href = '/login'
     }
 
-    // 统一错误格式
     const errorMessage = error.response?.data?.detail ||
                         error.response?.data?.message ||
                         error.message ||
