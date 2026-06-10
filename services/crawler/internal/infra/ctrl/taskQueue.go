@@ -252,16 +252,7 @@ func (tq *TaskQueue) saveCrawlResults(task *domain.Task, posts []*domain.Post) {
 	}
 }
 
-// finalizeTask 只做持久化，不改变任务状态
-// 状态由 ReportProgress（完成）和独立逻辑（失败）控制
-func (tq *TaskQueue) finalizeTask(task *domain.Task) {
-	if task.Status == domain.StatusPending {
-		return
-	}
-	task.EndTime = time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	if err := tq.repo.SaveTask(ctx, task); err != nil {
-		logx.Errorf("保存任务失败: %v", err)
-	}
-}
+// finalizeTask 💡 不再调用 SaveTask
+// posts_collected/status/end_time 由 ReportProgress 原子 SQL 管理
+// SaveTask 的完整 UPDATE 会把内存中的 PostsCollected=0 覆写到 DB，破坏原子累加结果
+func (tq *TaskQueue) finalizeTask(task *domain.Task) {}
