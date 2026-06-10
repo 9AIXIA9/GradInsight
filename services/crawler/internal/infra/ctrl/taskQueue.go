@@ -142,8 +142,8 @@ func (tq *TaskQueue) ProcessTask(task *domain.Task) {
 	links, err := tq.crawler.CollectPostLinks(resource.Browser(), tq.filter, s, task.Keyword, tq.batchSize, task.MinLikes)
 	if err != nil {
 		tq.resourcePool.Put(resource)
-		task.Err = fmt.Errorf("收集链接失败: %w", err)
-		return
+		logx.Errorf("任务 %v 收集链接失败（其他 worker 可能仍在处理）: %v", task.ID, err)
+		return // 本 worker 退出，不污染 task.Err
 	}
 
 	// 3. 爬取详情（本地计数，避免并发写 task.PostsCollected）
@@ -235,14 +235,13 @@ func (tq *TaskQueue) saveCrawlResults(task *domain.Task, posts []*domain.Post) {
 	}
 }
 
+// finalizeTask 只做持久化，不改变任务状态
+// 状态由 ReportProgress（完成）和独立逻辑（失败）控制
 func (tq *TaskQueue) finalizeTask(task *domain.Task) {
 	if task.Status == domain.StatusPending {
 		return
 	}
 	task.EndTime = time.Now()
-	if task.Err != nil {
-		task.Status = domain.StatusFailed
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	if err := tq.repo.SaveTask(ctx, task); err != nil {
