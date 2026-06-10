@@ -14,12 +14,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # ---- REST（调试兼容）----
-    REST_HOST: str = Field(default="0.0.0.0")
-    REST_PORT: int = Field(default=5000)
-
     # ---- gRPC（Java 调用）----
-    GRPC_HOST: str = Field(default="0.0.0.0")
     GRPC_PORT: int = Field(default=5001)
 
     # ---- Consul ----

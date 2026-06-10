@@ -29,7 +29,15 @@ public class AnalysisGrpcClient {
     }
 
     public AnalyzeResponse analyze(AnalyzeRequest request) {
-        return stub.analyze(request);
+        log.info("Calling Python analysis gRPC: types={}, keyword={}",
+                request.getAnalysisTypesList(), request.getKeywordFilter());
+        try {
+            return stub.withDeadlineAfter(120, java.util.concurrent.TimeUnit.SECONDS)
+                    .analyze(request);
+        } catch (Exception e) {
+            log.error("gRPC call failed: {}", e.getMessage(), e);
+            throw new RuntimeException("Python analysis service unavailable: " + e.getMessage(), e);
+        }
     }
 
     @PreDestroy

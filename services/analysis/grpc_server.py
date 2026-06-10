@@ -27,16 +27,17 @@ class AnalysisServicer(analysis_pb2_grpc.AnalysisServiceServicer):
 
     def Analyze(self, request: analysis_pb2.AnalyzeRequest, context) -> analysis_pb2.AnalyzeResponse:
         try:
-            # proto → Python model
             types = [AnalysisType(t) for t in request.analysis_types]
             analysis_request = AnalysisRequest(
-                task_id=None,  # 暂不使用
+                task_id=None,
                 analysis_types=types,
                 keyword_filter=request.keyword_filter or None,
                 min_posts=request.min_posts if request.min_posts > 0 else 5,
             )
 
             service = ContentAnalysisService()
+            from db import connection as dbc
+            dbc._connection_pool = None  # 每次请求重建连接池
             result = asyncio.run(service.analyze_content(analysis_request))
 
             # Python model → proto
@@ -115,7 +116,7 @@ class AnalysisServicer(analysis_pb2_grpc.AnalysisServiceServicer):
 def serve(port: int = 5001):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
     analysis_pb2_grpc.add_AnalysisServiceServicer_to_server(AnalysisServicer(), server)
-    server.add_insecure_port(f"[::]:{port}")
+    server.add_insecure_port(f"0.0.0.0:{port}")
     server.start()
     logger.info(f"gRPC server listening on :{port}")
     return server
