@@ -116,12 +116,10 @@
 
           <div class="row">
             <div class="col-md-4">
-              <label for="taskId" class="form-label">数据来源</label>
-              <select v-model="analysisForm.task_id" class="form-select" id="taskId">
-                <option value="">所有数据</option>
-                <option v-for="task in availableTasks" :key="task.id" :value="task.id">
-                  {{ task.keyword }} ({{ task.posts_collected || 0 }} 帖子)
-                </option>
+              <label for="site" class="form-label">数据来源</label>
+              <select v-model="analysisForm.site" class="form-select" id="site">
+                <option value="">所有平台</option>
+                <option value="0">小红书</option>
               </select>
             </div>
             <div class="col-md-4">
@@ -489,12 +487,11 @@ const userStore = useUserStore()
 const analyzing = ref(false)
 const currentAnalysis = ref(null)
 const analysisHistory = ref([])
-const availableTasks = ref([])
 
 // 分析表单（根据后端AnalysisRequest模型）
 const analysisForm = reactive({
   analysis_types: [],
-  task_id: '',
+  site: '',
   keyword_filter: '',
   min_posts: 5
 })
@@ -517,7 +514,7 @@ const submitAnalysis = async () => {
       // 重置表单
       Object.assign(analysisForm, {
         analysis_types: [],
-        task_id: '',
+        site: '',
         keyword_filter: '',
         min_posts: 5
       })
@@ -563,7 +560,7 @@ const universityAnalysis = async () => {
   analyzing.value = true
 
   try {
-    const response = await analysisService.universityAnalysis(analysisForm.task_id, analysisForm.keyword_filter)
+    const response = await analysisService.universityAnalysis(analysisForm.site, analysisForm.keyword_filter)
     if (response.success) {
       currentAnalysis.value = response.data
       await loadAnalysisHistory()
@@ -584,7 +581,7 @@ const majorAnalysis = async () => {
   analyzing.value = true
 
   try {
-    const response = await analysisService.majorAnalysis(analysisForm.task_id, analysisForm.keyword_filter)
+    const response = await analysisService.majorAnalysis(analysisForm.site, analysisForm.keyword_filter)
     if (response.success) {
       currentAnalysis.value = response.data
       await loadAnalysisHistory()
@@ -614,7 +611,7 @@ const comprehensiveAnalysis = async () => {
         'university_mention',
         'major_analysis'
       ],
-      task_id: analysisForm.task_id || null,
+      site: analysisForm.site,
       keyword_filter: analysisForm.keyword_filter || null,
       min_posts: 5
     }
@@ -644,19 +641,6 @@ const loadAnalysisHistory = async () => {
     }
   } catch (err) {
     console.error('加载分析历史失败:', err)
-  }
-}
-
-const loadTasks = async () => {
-  try {
-    const response = await apiClient.get('/crawler/tasks', {
-      params: { limit: 50, status: 0 } // 只加载已完成的任务
-    })
-    if (response.success) {
-      availableTasks.value = response.data.items || []
-    }
-  } catch (err) {
-    console.error('加载任务列表失败:', err)
   }
 }
 
@@ -733,10 +717,7 @@ const getSentimentText = (sentiment) => {
 
 // 生命周期
 onMounted(async () => {
-  await Promise.all([
-    loadAnalysisHistory(),
-    loadTasks()
-  ])
+  await loadAnalysisHistory()
 })
 </script>
 
