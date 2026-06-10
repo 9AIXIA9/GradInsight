@@ -81,11 +81,36 @@ public class AnalysisController {
         var rows = jdbc.queryForList(
                 "SELECT * FROM content_analysis_results WHERE id = ?", analysisId);
         if (rows.isEmpty()) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(Map.of("success", true, "data", rows.get(0)));
+
+        var result = new LinkedHashMap<>(rows.get(0));
+        result.put("topic_summaries", jdbc.queryForList(
+                "SELECT * FROM topic_summaries WHERE analysis_id = ?", analysisId));
+        result.put("content_clusters", jdbc.queryForList(
+                "SELECT * FROM content_clusters WHERE analysis_id = ?", analysisId));
+        result.put("keyword_frequencies", jdbc.queryForList(
+                "SELECT * FROM keyword_frequencies WHERE analysis_id = ?", analysisId));
+        result.put("sentiment_analysis", jdbc.queryForList(
+                "SELECT * FROM sentiment_analysis WHERE analysis_id = ?", analysisId));
+        result.put("university_mentions", jdbc.queryForList(
+                "SELECT * FROM university_mentions WHERE analysis_id = ?", analysisId));
+        result.put("major_analysis", jdbc.queryForList(
+                "SELECT * FROM major_analysis WHERE analysis_id = ?", analysisId));
+        result.put("insights", jdbc.queryForList(
+                "SELECT insight_text FROM analysis_insights WHERE analysis_id = ?", analysisId)
+                .stream().map(m -> m.get("insight_text")).toList());
+
+        return ResponseEntity.ok(Map.of("success", true, "data", result));
     }
 
     @DeleteMapping("/analysis/{analysisId}")
     public ResponseEntity<Map<String, Object>> delete(@PathVariable String analysisId) {
+        jdbc.update("DELETE FROM analysis_insights WHERE analysis_id = ?", analysisId);
+        jdbc.update("DELETE FROM major_analysis WHERE analysis_id = ?", analysisId);
+        jdbc.update("DELETE FROM university_mentions WHERE analysis_id = ?", analysisId);
+        jdbc.update("DELETE FROM sentiment_analysis WHERE analysis_id = ?", analysisId);
+        jdbc.update("DELETE FROM keyword_frequencies WHERE analysis_id = ?", analysisId);
+        jdbc.update("DELETE FROM content_clusters WHERE analysis_id = ?", analysisId);
+        jdbc.update("DELETE FROM topic_summaries WHERE analysis_id = ?", analysisId);
         jdbc.update("DELETE FROM content_analysis_results WHERE id = ?", analysisId);
         return ResponseEntity.ok(Map.of("success", true, "message", "deleted"));
     }
