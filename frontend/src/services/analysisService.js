@@ -35,12 +35,12 @@ class AnalysisService {
    */
   async quickAnalysis(taskId = null, keyword = null) {
     try {
-      const params = {}
-      if (taskId) params.task_id = taskId
-      if (keyword) params.keyword = keyword
-      
-      const response = await apiClient.post('/analysis/quick-analysis', params)
-      return response
+      return this.analyzeContent({
+        analysis_types: ['topic_summary', 'keyword_extraction', 'sentiment_analysis', 'university_mention'],
+        task_id: taskId || null,
+        keyword_filter: keyword || null,
+        min_posts: 5
+      })
     } catch (error) {
       console.error('快速分析失败:', error)
       throw error

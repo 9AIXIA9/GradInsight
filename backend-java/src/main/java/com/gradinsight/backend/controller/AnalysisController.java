@@ -34,18 +34,6 @@ public class AnalysisController {
         ));
     }
 
-    @PostMapping("/analysis/quick-analysis")
-    public ResponseEntity<Map<String, Object>> quickAnalysis(@RequestBody Map<String, Object> body) {
-        List<String> types = List.of("topic_summary", "keyword_extraction",
-                "sentiment_analysis", "university_mention");
-        String keyword = (String) body.getOrDefault("keyword", null);
-        AnalyzeResponse resp = analysisService.analyze(types, keyword, 5);
-        return ResponseEntity.ok(Map.of(
-                "success", resp.getSuccess(),
-                "data", resp.getData()
-        ));
-    }
-
     // ===== 查询（Java 直读 MySQL）=====
 
     @GetMapping("/analysis/history")
