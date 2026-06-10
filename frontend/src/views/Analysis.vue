@@ -276,17 +276,16 @@
         <div class="tab-content mt-3" id="analysisTabContent">
           <!-- 关键词标签页 -->
           <div class="tab-pane fade show active" id="keywords">
-            <div v-if="currentAnalysis.keyword_frequencies?.length > 0" class="row">
-              <div v-for="keyword in currentAnalysis.keyword_frequencies.slice(0, 20)" :key="keyword.keyword" class="col-md-6 col-lg-4 mb-2">
-                <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
-                  <span class="fw-medium">{{ keyword.keyword }}</span>
-                  <span class="badge bg-primary">{{ keyword.frequency }}</span>
-                </div>
-              </div>
+            <div v-if="currentAnalysis.keyword_frequencies?.length > 0" class="keyword-cloud text-center p-3">
+              <span v-for="(kw, idx) in currentAnalysis.keyword_frequencies.slice(0, 30)" :key="kw.keyword"
+                class="badge m-1 px-3 py-2 keyword-tag"
+                :class="['bg-primary','bg-success','bg-info','bg-warning text-dark','bg-danger'][idx % 5]"
+                :style="{fontSize: (0.8 + Math.min(kw.frequency, 50) / 50) + 'em', opacity: 0.7 + idx * 0.01}">
+                {{ kw.keyword }} <small>({{ kw.frequency }})</small>
+              </span>
             </div>
             <div v-else class="text-center text-muted py-4">
-              <i class="bi bi-tags display-4"></i>
-              <p class="mt-2">暂无关键词数据</p>
+              <i class="bi bi-tags display-4"></i><p class="mt-2">暂无关键词数据</p>
             </div>
           </div>
 
@@ -306,24 +305,16 @@
                     <div class="d-flex justify-content-between align-items-center mb-2">
                       <span class="badge bg-secondary">{{ topic.post_count }} 帖子</span>
                     </div>
-                    <div v-if="topic.related_universities?.length > 0" class="mb-2">
+                    <div v-if="getArray(topic.related_universities).length" class="mb-2">
                       <small class="text-muted">相关高校:</small>
                       <div class="mt-1">
-                        <span v-for="uni in topic.related_universities.slice(0, 3)" 
-                              :key="uni" 
-                              class="badge bg-light text-dark me-1 mb-1">
-                          {{ uni }}
-                        </span>
+                        <span v-for="uni in getArray(topic.related_universities).slice(0,5)" :key="uni" class="badge bg-light text-dark me-1 mb-1">{{ uni }}</span>
                       </div>
                     </div>
-                    <div v-if="topic.related_majors?.length > 0">
+                    <div v-if="getArray(topic.related_majors).length">
                       <small class="text-muted">相关专业:</small>
                       <div class="mt-1">
-                        <span v-for="major in topic.related_majors.slice(0, 3)" 
-                              :key="major" 
-                              class="badge bg-primary text-white me-1 mb-1">
-                          {{ major }}
-                        </span>
+                        <span v-for="major in getArray(topic.related_majors).slice(0,5)" :key="major" class="badge bg-info text-white me-1 mb-1">{{ major }}</span>
                       </div>
                     </div>
                   </div>
@@ -339,19 +330,26 @@
           <!-- 高校标签页 -->
           <div class="tab-pane fade" id="universities">
             <div v-if="currentAnalysis.university_mentions?.length > 0" class="row">
-              <div v-for="uni in currentAnalysis.university_mentions" :key="uni.university_name" class="col-md-6 col-lg-4 mb-3">
-                <div class="card text-center">
+              <div v-for="uni in currentAnalysis.university_mentions" :key="uni.university_name" class="col-md-6 mb-3">
+                <div class="card h-100 university-card">
                   <div class="card-body">
-                    <h6 class="card-title">{{ uni.university_name }}</h6>
-                    <h4 class="text-primary">{{ uni.mention_count }}</h4>
-                    <p class="text-muted mb-0">提及次数</p>
+                    <h6 class="card-title mb-2">{{ uni.university_name }}</h6>
+                    <div class="d-flex align-items-center mb-2">
+                      <h3 class="text-primary mb-0 me-2">{{ uni.mention_count }}</h3>
+                      <small class="text-muted">次提及</small>
+                      <span class="ms-auto badge" :class="uni.sentiment_score > 0.2 ? 'bg-success' : uni.sentiment_score < -0.2 ? 'bg-danger' : 'bg-secondary'">
+                        {{ (uni.sentiment_score > 0.2 ? '😊' : uni.sentiment_score < -0.2 ? '😟' : '😐') }} {{ (uni.sentiment_score * 100).toFixed(0) }}%
+                      </span>
+                    </div>
+                    <div v-if="getArray(uni.related_topics).length" class="mt-2">
+                      <small v-for="t in getArray(uni.related_topics).slice(0,5)" :key="t" class="badge bg-light text-dark me-1 mb-1">{{ t }}</small>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
             <div v-else class="text-center text-muted py-4">
-              <i class="bi bi-building display-4"></i>
-              <p class="mt-2">暂无高校数据</p>
+              <i class="bi bi-building display-4"></i><p class="mt-2">暂无高校数据</p>
             </div>
           </div>
 
@@ -671,6 +669,12 @@ const formatDate = (dateString) => {
   })
 }
 
+const getArray = (val) => {
+  if (!val) return []
+  if (Array.isArray(val)) return val
+  if (typeof val === 'string') { try { return JSON.parse(val) } catch { return [val] } }
+  return []
+}
 // 辅助方法
 const getDifficultyBadgeClass = (difficulty) => {
   switch (difficulty) {
@@ -760,7 +764,10 @@ onMounted(async () => {
   border-color: #198754 !important;
 }
 
-.border-info {
-  border-color: #0dcaf0 !important;
-}
+.border-info { border-color: #0dcaf0 !important }
+.keyword-cloud { line-height: 2.2 }
+.keyword-tag { cursor:default; transition:transform .15s; display:inline-block }
+.keyword-tag:hover { transform:scale(1.15) }
+.university-card { border-radius:12px; transition:box-shadow .2s }
+.university-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.1) }
 </style>
