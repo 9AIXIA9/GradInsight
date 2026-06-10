@@ -14,14 +14,22 @@ var _ TasksModel = (*customTasksModel)(nil)
 type (
 	TasksModel interface {
 		tasksModel
-		// ReportProgress 原子累加已爬帖数，返回 (是否配额已满)
 		ReportProgress(ctx context.Context, taskID string, crawled uint32) (done bool, err error)
+		FindUnfinished(ctx context.Context) ([]*Tasks, error)
 	}
 
 	customTasksModel struct {
 		*defaultTasksModel
 	}
 )
+
+// FindUnfinished 查询状态为 Running(2) 或 Pending(3) 的任务
+func (m *customTasksModel) FindUnfinished(ctx context.Context) ([]*Tasks, error) {
+	var tasks []*Tasks
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE status IN (2,3) ORDER BY created_at ASC", tasksRows, m.table)
+	err := m.QueryRowsNoCacheCtx(ctx, &tasks, query)
+	return tasks, err
+}
 
 // ReportProgress 原子累加 + 检查完成
 func (m *customTasksModel) ReportProgress(ctx context.Context, taskID string, crawled uint32) (bool, error) {

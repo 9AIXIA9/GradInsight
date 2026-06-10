@@ -6,6 +6,7 @@ import (
 	"errors"
 	"gradinsight-crawler/internal/domain"
 	"gradinsight-crawler/internal/model"
+	"gradinsight-crawler/proto"
 )
 
 // MysqlRepository MySQL仓库实现
@@ -54,6 +55,32 @@ func (r *MysqlRepository) SaveTask(ctx context.Context, task *domain.Task) error
 // ReportProgress 原子累加已爬帖数，返回是否完成
 func (r *MysqlRepository) ReportProgress(ctx context.Context, taskID domain.TaskID, crawled uint32) (done bool, err error) {
 	return r.taskModel.ReportProgress(ctx, string(taskID), crawled)
+}
+
+// FindTasksByStatus 查询指定状态的任务列表
+func (r *MysqlRepository) FindTasksByStatus(ctx context.Context, statuses []int) ([]*domain.Task, error) {
+	tasks, err := r.taskModel.FindUnfinished(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var result []*domain.Task
+	for _, t := range tasks {
+		result = append(result, &domain.Task{
+			ID:              domain.TaskID(t.Id),
+			Status:          domain.TaskStatus(t.Status),
+			PostsCollected:  uint32(t.PostsCollected),
+			StartTime:       t.StartTime,
+			Site:            proto.Site(t.Site),
+			Keyword:         t.Keyword,
+			PostCount:       t.PostCount,
+			MinLikes:        t.MinLikes,
+			CommentMinLikes: t.CommentMinLikes,
+			CommentsPerPost: t.CommentsPerPost,
+			IncludeComments: t.IncludeComments == 1,
+			IncludeImages:   t.IncludeImages == 1,
+		})
+	}
+	return result, nil
 }
 
 // SavePosts 保存爬取到的帖子

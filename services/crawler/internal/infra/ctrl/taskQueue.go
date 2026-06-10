@@ -57,6 +57,23 @@ func NewTaskQueue(conf *config.TaskQueue, repo domain.Repository, filter domain.
 
 // ---- 生命周期 ----
 
+// Resume 启动时恢复未完成的任务
+func (tq *TaskQueue) Resume(ctx context.Context) error {
+	tasks, err := tq.repo.FindTasksByStatus(ctx, []int{2, 3})
+	if err != nil {
+		return err
+	}
+	for _, task := range tasks {
+		logx.Infof("恢复未完成任务: %v (%s), 已爬 %d/%d", task.ID, task.Keyword, task.PostsCollected, task.PostCount)
+		task.Status = domain.StatusPending
+		task.Err = nil
+		if err := tq.AddTask(task); err != nil {
+			logx.Errorf("恢复任务 %v 失败: %v", task.ID, err)
+		}
+	}
+	return nil
+}
+
 func (tq *TaskQueue) AddTask(task *domain.Task) error {
 	defer tq.persistTask(task)
 	logx.Infof("收到任务：%v", task.ID)

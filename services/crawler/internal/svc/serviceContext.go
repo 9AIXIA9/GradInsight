@@ -1,7 +1,11 @@
 package svc
 
 import (
+	"context"
+	"time"
+
 	"github.com/zeromicro/go-zero/core/bloom"
+	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"gradinsight-crawler/internal/config"
 	"gradinsight-crawler/internal/domain"
@@ -19,27 +23,24 @@ type ServiceContext struct {
 }
 
 func MustNewServiceContext(c *config.Config) *ServiceContext {
-	//创建Mysql客户端
 	mysqlClient := sqlx.NewMysql(c.MySQL.DSN)
-
-	//创建Redis客户端
 	redisClient := redisx.MustNewClient(c.Redisx)
 
-	//初始化仓库
 	taskModel := model.NewTasksModel(mysqlClient, c.CacheRedis)
 	postsModel := model.NewPostsModel(mysqlClient, c.CacheRedis)
 	commentsModel := model.NewCommentsModel(mysqlClient, c.CacheRedis)
 
 	repo := repository.NewMysqlRepository(taskModel, postsModel, commentsModel)
-
-	// 初始化布隆过滤器
-	filter := bloom.New(redisClient, c.BloomFilter.Key, c.BloomFilter.Bits) //并发安全
-
-	//初始化资源池
+	filter := bloom.New(redisClient, c.BloomFilter.Key, c.BloomFilter.Bits)
 	resourcePool := resource.MustNewResourcePool(c.Resource)
-
-	// 使用配置的工作线程数初始化任务队列
 	taskQueue := ctrl.NewTaskQueue(&c.TaskQueue, repo, filter, resourcePool)
+
+	// 启动时恢复未完成的任务（状态为 Running 或 Pending）
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := taskQueue.Resume(ctx); err != nil {
+		logx.Errorf("恢复未完成任务失败: %v", err)
+	}
 
 	return &ServiceContext{
 		Config:    c,
