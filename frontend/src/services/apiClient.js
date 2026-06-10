@@ -46,9 +46,10 @@ apiClient.interceptors.response.use(
     return data
   },
   (error) => {
-    // 不在拦截器里做硬跳转，交给各页面自己处理
     if (error.response?.status === 401) {
+      // Token过期或无效，清除本地存储
       localStorage.removeItem('access_token')
+      window.location.href = '/login'
     }
 
     // 统一错误格式

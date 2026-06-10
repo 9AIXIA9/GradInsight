@@ -32,18 +32,14 @@ export const useUserStore = defineStore('user', () => {
     try {
       const response = await authService.login(credentials)
       if (response.success) {
-        const data = response.data
-        setToken(data.access_token || data.token)
+        // 修改：登录成功后，token在response.data中
+        const tokenData = response.data
+        setToken(tokenData.access_token)
 
-        // Java 后端 login 直接返回 user 对象，无需再调 /me
-        if (data.user) {
-          setUser(data.user)
-        } else {
-          // fallback: 旧版兼容，调 /me 获取用户信息
-          const userResponse = await authService.getCurrentUser()
-          if (userResponse.success) {
-            setUser(userResponse.data)
-          }
+        // 登录成功后获取用户信息
+        const userResponse = await authService.getCurrentUser()
+        if (userResponse.success) {
+          setUser(userResponse.data)
         }
 
         return { success: true }
