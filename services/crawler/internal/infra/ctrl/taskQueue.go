@@ -134,36 +134,50 @@ func (tq *TaskQueue) sendTaskToQueue(task *domain.Task) error {
 	return nil
 }
 
-// ---- 核心：批次认领循环（先爬后报）----
+// ---- 核心：批次认领（先爬后报）----
 
 func (tq *TaskQueue) ProcessTask(task *domain.Task) {
-	defer func() { tq.finalizeTask(task) }()
+	requeued := false
+	defer func() {
+		tq.finalizeTask(task)
+		// 任何失败/异常路径都重新入队，防止任务丢失
+		if !requeued && task.Status != domain.StatusCompleted && task.Status != domain.StatusFailed {
+			task.Status = domain.StatusPending
+			task.Err = nil
+			if err := tq.sendTaskToQueue(task); err != nil {
+				logx.Errorf("任务 %v 失败后重新入队错误: %v", task.ID, err)
+			} else {
+				logx.Infof("任务 %v 异常退出，已重新入队", task.ID)
+			}
+		}
+	}()
 
 	// 1. 获取爬虫资源
 	s, err := tq.prepareSite(task)
 	if err != nil {
-		task.Err = err
+		logx.Errorf("任务 %v 准备站点失败: %v", task.ID, err)
 		return
 	}
 
 	resource, err := tq.acquireResource(task)
 	if err != nil {
-		task.Err = err
+		logx.Errorf("任务 %v 获取资源失败: %v", task.ID, err)
 		return
 	}
 	if resource == nil || task.Status == domain.StatusPending {
+		requeued = true // acquireResource 内部已重新入队
 		return
 	}
 
-	// 2. 爬取链接（最多 batchSize 篇）
+	// 2. 爬取链接
 	links, err := tq.crawler.CollectPostLinks(resource.Browser(), tq.filter, s, task.Keyword, tq.batchSize, task.MinLikes)
 	if err != nil {
 		tq.resourcePool.Put(resource)
-		logx.Errorf("任务 %v 收集链接失败（其他 worker 可能仍在处理）: %v", task.ID, err)
-		return // 本 worker 退出，不污染 task.Err
+		logx.Errorf("任务 %v 收集链接失败，将重试: %v", task.ID, err)
+		return // defer 会重新入队
 	}
 
-	// 3. 爬取详情（本地计数，避免并发写 task.PostsCollected）
+	// 3. 爬取详情
 	posts, batchCrawled := tq.collectPosts(resource, s, links, task)
 	tq.resourcePool.Put(resource)
 
@@ -171,7 +185,7 @@ func (tq *TaskQueue) ProcessTask(task *domain.Task) {
 	tq.saveCrawlResults(task, posts)
 	done, err := tq.repo.ReportProgress(context.Background(), task.ID, batchCrawled)
 	if err != nil {
-		task.Err = fmt.Errorf("报进度失败: %w", err)
+		logx.Errorf("任务 %v 报进度失败: %v", task.ID, err)
 		return
 	}
 
@@ -182,10 +196,13 @@ func (tq *TaskQueue) ProcessTask(task *domain.Task) {
 		return
 	}
 
-	// 配额未满，重新入队让其他 worker 来抢
+	// 配额未满，重新入队
 	task.Status = domain.StatusPending
+	task.Err = nil
 	if err := tq.sendTaskToQueue(task); err != nil {
-		task.Err = err
+		logx.Errorf("任务 %v 重新入队失败: %v", task.ID, err)
+	} else {
+		requeued = true
 	}
 }
 
