@@ -33,6 +33,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/stats/**").permitAll()
                         .requestMatchers("/api/posts/**").permitAll()
+                        .requestMatchers("/api/posts/image-proxy").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()

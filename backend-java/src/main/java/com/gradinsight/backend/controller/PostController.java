@@ -1,8 +1,9 @@
 package com.gradinsight.backend.controller;
 
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 
@@ -11,9 +12,27 @@ import java.util.*;
 public class PostController {
 
     private final JdbcTemplate jdbc;
+    private final RestTemplate restTemplate = new RestTemplate();
 
     public PostController(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
+    }
+
+    /** 图片代理：绕过小红书防盗链 */
+    @GetMapping("/image-proxy")
+    public ResponseEntity<byte[]> imageProxy(@RequestParam String url) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Referer", "https://www.xiaohongshu.com/");
+            headers.set("User-Agent", "Mozilla/5.0");
+            var entity = new HttpEntity<>(headers);
+            ResponseEntity<byte[]> resp = restTemplate.exchange(url, HttpMethod.GET, entity, byte[].class);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType("image/webp"))
+                    .body(resp.getBody());
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     /** GET /api/posts */
@@ -118,15 +137,20 @@ public class PostController {
         ));
     }
 
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
     @SuppressWarnings("unchecked")
     private void parseJsonArray(Map<String, Object> row, String key) {
         Object val = row.get(key);
-        if (val instanceof String s && !s.isBlank()) {
-            try {
-                row.put(key, new com.fasterxml.jackson.databind.ObjectMapper().readValue(s, List.class));
-            } catch (Exception e) {
-                row.put(key, List.of());
-            }
+        if (val == null) { row.put(key, List.of()); return; }
+        if (val instanceof List<?>) return; // already parsed
+        String s = val.toString().trim();
+        if (s.isEmpty() || "null".equals(s)) { row.put(key, List.of()); return; }
+        try {
+            row.put(key, objectMapper.readValue(s, List.class));
+        } catch (Exception e) {
+            // RETURN RAW STRING so frontend can JSON.parse it
         }
     }
 }
