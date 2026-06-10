@@ -16,3 +16,8 @@ aiomysql>=0.2.0
 
 # 环境变量
 python-dotenv>=1.0.0
+
+# gRPC
+grpcio>=1.60.0
+grpcio-tools>=1.60.0
+protobuf>=4.21.0

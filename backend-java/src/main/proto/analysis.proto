@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+package analysis;
+
+option go_package = "./proto";
+option java_package = "com.gradinsight.proto.analysis";
+option java_multiple_files = true;
+
+// =============================================
+// GradInsight 内容分析服务
+// =============================================
+// 由 Python 微服务实现 (services/analysis/)
+// 供 Java 后端通过 gRPC 调用
+
+service AnalysisService {
+  // 执行内容分析（支持多种分析类型组合）
+  rpc Analyze (AnalyzeRequest) returns (AnalyzeResponse);
+}
+
+// ---- 请求 ----
+
+message AnalyzeRequest {
+  repeated string analysis_types = 1;  // topic_summary, content_clustering, keyword_extraction,
+                                       // sentiment_analysis, university_mention, major_analysis
+  int32 site = 2;                      // 平台: 0-小红书（可选，0 表示全平台）
+  string keyword_filter = 3;           // 关键词筛选（可选）
+  int32 min_posts = 4;                 // 最少帖子数，默认 5
+}
+
+// ---- 响应 ----
+
+message AnalyzeResponse {
+  bool success = 1;
+  string message = 2;
+  AnalysisResultData data = 3;  // 成功时填充
+}
+
+// ---- 分析结果 ----
+
+message AnalysisResultData {
+  string analysis_id = 1;
+  string task_id = 2;
+  int32 total_posts_analyzed = 3;
+  double processing_time = 4;
+
+  repeated TopicSummary topic_summaries = 5;
+  repeated ContentCluster content_clusters = 6;
+  repeated KeywordFrequency keyword_frequencies = 7;
+  repeated SentimentResult sentiment_analysis = 8;
+  repeated UniversityMention university_mentions = 9;
+  repeated MajorAnalysis major_analysis = 10;
+  repeated string insights = 11;
+}
+
+message TopicSummary {
+  string topic = 1;
+  string summary = 2;
+  int32 post_count = 3;
+  repeated string main_points = 4;
+  string sentiment_trend = 5;      // positive / negative / neutral
+  repeated string related_universities = 6;
+  repeated string related_majors = 7;
+}
+
+message ContentCluster {
+  string cluster_id = 1;
+  string cluster_name = 2;
+  string cluster_summary = 3;
+  repeated string post_ids = 4;
+  int32 post_count = 5;
+  double similarity_score = 6;
+  repeated string keywords = 7;
+}
+
+message KeywordFrequency {
+  string keyword = 1;
+  int32 frequency = 2;
+  double importance_score = 3;
+  repeated string related_posts = 4;
+}
+
+message SentimentResult {
+  string post_id = 1;
+  string sentiment = 2;            // positive / negative / neutral
+  double confidence = 3;
+  repeated string emotion_keywords = 4;
+}
+
+message UniversityMention {
+  string university_name = 1;
+  int32 mention_count = 2;
+  double sentiment_score = 3;
+  repeated string related_topics = 4;
+  repeated string post_ids = 5;
+}
+
+message MajorAnalysis {
+  string major_name = 1;
+  int32 mention_count = 2;
+  double job_prospect_sentiment = 3;
+  string difficulty_level = 4;     // easy / medium / hard
+  repeated string related_universities = 5;
+  repeated string key_discussions = 6;
+}
