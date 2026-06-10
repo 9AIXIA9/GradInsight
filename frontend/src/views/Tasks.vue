@@ -515,11 +515,12 @@ const getProgressBarClass = (status) => {
 
 const formatSiteName = (site) => {
   const siteMap = {
+    0: '小红书',
     'xiaohongshu': '小红书',
     'weibo': '微博',
     'zhihu': '知乎'
   }
-  return siteMap[site] || site
+  return siteMap[site] || ('平台' + site)
 }
 
 const calculateProgress = (task) => {
