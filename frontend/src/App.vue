@@ -7,7 +7,7 @@
           <img
             src="@/assets/img/logo.svg"
             alt="GradInsight Logo"
-            height="30"
+            height="36"
             class="d-inline-block align-text-top me-2"
           />
           GradInsight
