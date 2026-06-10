@@ -291,39 +291,26 @@
           <!-- 话题标签页 -->
           <div class="tab-pane fade" id="topics">
             <div v-if="currentAnalysis.topic_summaries?.length > 0" class="row">
-              <div v-for="topic in currentAnalysis.topic_summaries" :key="topic.topic" class="col-md-6 mb-3">
-                <div class="card">
+              <div v-for="topic in currentAnalysis.topic_summaries" :key="topic.topic" class="col-lg-6 mb-3">
+                <div class="card topic-card h-100">
                   <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                      <h6 class="card-title mb-0">{{ topic.topic }}</h6>
-                      <span class="badge" :class="getSentimentBadgeClass(topic.sentiment_trend)">
-                        {{ getSentimentText(topic.sentiment_trend) }}
-                      </span>
+                    <div class="d-flex align-items-center mb-2">
+                      <h6 class="mb-0 me-2">{{ topic.topic }}</h6>
+                      <span class="badge rounded-pill" :class="topic.sentiment_trend==='positive'?'bg-success':topic.sentiment_trend==='negative'?'bg-danger':'bg-secondary'">{{ topic.sentiment_trend==='positive'?'😊 积极':topic.sentiment_trend==='negative'?'😟 消极':'😐 中性' }}</span>
+                      <span class="ms-auto badge bg-light text-dark">{{ topic.post_count }}帖</span>
                     </div>
-                    <p class="card-text text-muted small">{{ topic.summary }}</p>
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                      <span class="badge bg-secondary">{{ topic.post_count }} 帖子</span>
+                    <p class="text-muted small mb-2">{{ topic.summary }}</p>
+                    <div v-if="getArray(topic.main_points).length" class="mb-2">
+                      <small class="text-muted">主要观点：</small>
+                      <span v-for="pt in getArray(topic.main_points).slice(0,4)" :key="pt" class="badge bg-light text-secondary me-1 mb-1 small">· {{ pt }}</span>
                     </div>
-                    <div v-if="getArray(topic.related_universities).length" class="mb-2">
-                      <small class="text-muted">相关高校:</small>
-                      <div class="mt-1">
-                        <span v-for="uni in getArray(topic.related_universities).slice(0,5)" :key="uni" class="badge bg-light text-dark me-1 mb-1">{{ uni }}</span>
-                      </div>
-                    </div>
-                    <div v-if="getArray(topic.related_majors).length">
-                      <small class="text-muted">相关专业:</small>
-                      <div class="mt-1">
-                        <span v-for="major in getArray(topic.related_majors).slice(0,5)" :key="major" class="badge bg-info text-white me-1 mb-1">{{ major }}</span>
-                      </div>
-                    </div>
+                    <div v-if="getArray(topic.related_universities).length" class="mb-1"><small class="text-muted">🏫</small> <span v-for="u in getArray(topic.related_universities).slice(0,3)" :key="u" class="badge bg-soft-blue text-dark me-1 mb-1">{{ u }}</span></div>
+                    <div v-if="getArray(topic.related_majors).length"><small class="text-muted">📚</small> <span v-for="m in getArray(topic.related_majors).slice(0,3)" :key="m" class="badge bg-soft-green text-dark me-1 mb-1">{{ m }}</span></div>
                   </div>
                 </div>
               </div>
             </div>
-            <div v-else class="text-center text-muted py-4">
-              <i class="bi bi-chat-text display-4"></i>
-              <p class="mt-2">暂无话题数据</p>
-            </div>
+            <div v-else class="text-center text-muted py-4"><i class="bi bi-chat-text display-4"></i><p class="mt-2">暂无话题数据</p></div>
           </div>
 
           <!-- 高校标签页 -->
@@ -356,81 +343,62 @@
           <div class="tab-pane fade" id="majors">
             <div v-if="currentAnalysis.major_analysis?.length > 0" class="row">
               <div v-for="major in currentAnalysis.major_analysis" :key="major.major_name" class="col-md-6 col-lg-4 mb-3">
-                <div class="card">
+                <div class="card major-card h-100">
                   <div class="card-body">
-                    <h6 class="card-title">{{ major.major_name }}</h6>
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                      <span class="badge bg-primary">{{ major.mention_count }} 次提及</span>
-                      <span class="badge" :class="getDifficultyBadgeClass(major.difficulty_level)">
-                        {{ getDifficultyText(major.difficulty_level) }}
-                      </span>
+                    <h6 class="card-title mb-3">{{ major.major_name }}</h6>
+                    <div class="d-flex gap-2 mb-2">
+                      <span class="badge bg-primary rounded-pill">{{ major.mention_count }} 次提及</span>
+                      <span class="badge rounded-pill" :class="major.difficulty_level==='easy'?'bg-success':major.difficulty_level==='hard'?'bg-danger':'bg-warning text-dark'">{{ major.difficulty_level==='easy'?'简单':major.difficulty_level==='hard'?'困难':'中等' }}</span>
                     </div>
-                    <div class="progress mb-2" style="height: 6px;">
-                      <div class="progress-bar" 
-                           :class="getJobProspectProgressClass(major.job_prospect_sentiment)"
-                           :style="{ width: `${Math.abs(major.job_prospect_sentiment) * 100}%` }">
-                      </div>
+                    <div class="d-flex align-items-center mb-1"><small class="text-muted me-2" style="width:60px">就业前景</small>
+                      <div class="progress flex-grow-1" style="height:8px"><div class="progress-bar" :class="major.job_prospect_sentiment>0.3?'bg-success':major.job_prospect_sentiment<-0.3?'bg-danger':'bg-warning'" :style="{width:Math.min(Math.abs(major.job_prospect_sentiment)*200,100)+'%'}"></div></div>
+                      <small class="ms-2">{{ (major.job_prospect_sentiment > 0 ? '+' : '') + (major.job_prospect_sentiment*100).toFixed(0) }}%</small>
                     </div>
-                    <small class="text-muted">就业前景评价</small>
+                    <div v-if="getArray(major.related_universities).length" class="mt-2"><small class="text-muted">相关高校：</small><span v-for="u in getArray(major.related_universities).slice(0,3)" :key="u" class="badge bg-light text-dark me-1">{{ u }}</span></div>
+                    <div v-if="getArray(major.key_discussions).length" class="mt-1 text-muted small">💬 <span v-for="d in getArray(major.key_discussions).slice(0,3)" :key="d">{{ d }}；</span></div>
                   </div>
                 </div>
               </div>
             </div>
-            <div v-else class="text-center text-muted py-4">
-              <i class="bi bi-mortarboard display-4"></i>
-              <p class="mt-2">暂无专业数据</p>
-            </div>
+            <div v-else class="text-center text-muted py-4"><i class="bi bi-mortarboard display-4"></i><p class="mt-2">暂无专业数据</p></div>
           </div>
 
           <!-- 聚类标签页 -->
           <div class="tab-pane fade" id="clusters">
             <div v-if="currentAnalysis.content_clusters?.length > 0" class="row">
-              <div v-for="cluster in currentAnalysis.content_clusters" :key="cluster.cluster_id" class="col-md-6 mb-3">
-                <div class="card">
+              <div v-for="cluster in currentAnalysis.content_clusters" :key="cluster.cluster_id" class="col-lg-6 mb-3">
+                <div class="card cluster-card h-100">
                   <div class="card-body">
-                    <h6 class="card-title">{{ cluster.cluster_name }}</h6>
-                    <p class="card-text text-muted small">{{ cluster.cluster_summary }}</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <span class="badge bg-secondary">{{ cluster.post_count }} 帖子</span>
-                      <span class="badge bg-info">相似度: {{ (cluster.similarity_score * 100).toFixed(1) }}%</span>
-                    </div>
-                    <div v-if="cluster.keywords?.length > 0" class="mt-2">
-                      <small class="text-muted">关键词:</small>
-                      <div class="mt-1">
-                        <span v-for="keyword in cluster.keywords.slice(0, 5)" 
-                              :key="keyword" 
-                              class="badge bg-light text-dark me-1 mb-1">
-                          {{ keyword }}
-                        </span>
+                    <div class="d-flex align-items-start mb-2">
+                      <div class="me-3 text-center" style="min-width:50px">
+                        <div class="rounded-circle d-inline-flex align-items-center justify-content-center" style="width:44px;height:44px;background:hsl(198,70%,85%)">
+                          <strong class="small">{{ (cluster.similarity_score*100).toFixed(0) }}%</strong>
+                        </div>
+                        <div class="text-muted" style="font-size:.65rem">相似度</div>
+                      </div>
+                      <div class="flex-grow-1">
+                        <h6 class="mb-1">{{ cluster.cluster_name }}</h6>
+                        <p class="text-muted small mb-2">{{ cluster.cluster_summary }}</p>
+                        <span class="badge bg-secondary rounded-pill me-2">{{ cluster.post_count }} 帖子</span>
+                        <span v-for="kw in getArray(cluster.keywords).slice(0,6)" :key="kw" class="badge bg-light text-dark me-1 mb-1">{{ kw }}</span>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            <div v-else class="text-center text-muted py-4">
-              <i class="bi bi-diagram-3 display-4"></i>
-              <p class="mt-2">暂无聚类数据</p>
-            </div>
+            <div v-else class="text-center text-muted py-4"><i class="bi bi-diagram-3 display-4"></i><p class="mt-2">暂无聚类数据</p></div>
           </div>
 
           <!-- 洞察标签页 -->
           <div class="tab-pane fade" id="insights">
-            <div v-if="currentAnalysis.insights?.length > 0">
-              <div class="alert alert-info">
-                <i class="bi bi-info-circle me-2"></i>
-                <strong>分析洞察</strong>
+            <div v-if="getArray(currentAnalysis.insights).length > 0" class="insight-list">
+              <div v-for="(insight, idx) in getArray(currentAnalysis.insights)" :key="idx" class="d-flex align-items-start mb-3 p-3 bg-light rounded">
+                <span class="me-3 fs-5">💡</span>
+                <span>{{ insight }}</span>
               </div>
-              <ul class="list-group list-group-flush">
-                <li v-for="insight in currentAnalysis.insights" :key="insight" class="list-group-item">
-                  <i class="bi bi-arrow-right me-2 text-primary"></i>{{ insight }}
-                </li>
-              </ul>
             </div>
-            <div v-else class="text-center text-muted py-4">
-              <i class="bi bi-lightbulb display-4"></i>
-              <p class="mt-2">暂无分析洞察</p>
-            </div>
+            <div v-else class="text-center text-muted py-4"><i class="bi bi-lightbulb display-4"></i><p class="mt-2">暂无洞察数据</p></div>
           </div>
         </div>
       </div>
@@ -793,6 +761,9 @@ onMounted(async () => {
 .keyword-pill { display:inline-block; border-radius:50px; line-height:1.3; cursor:default; transition:all .25s ease; animation:fadeInUp .4s ease both }
 .keyword-pill:hover { transform:scale(1.2) !important; z-index:1; box-shadow:0 4px 15px rgba(0,0,0,.2) }
 @keyframes fadeInUp { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:translateY(0) } }
-.university-card { border-radius:12px; transition:box-shadow .2s }
-.university-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.1) }
+.university-card,.topic-card,.major-card,.cluster-card { border-radius:12px; transition:box-shadow .2s; border:none; box-shadow:0 1px 3px rgba(0,0,0,.08) }
+.university-card:hover,.topic-card:hover,.major-card:hover,.cluster-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.12) }
+.bg-soft-blue { background:#e3f0fb } .bg-soft-green { background:#e3f8f0 }
+.insight-list .rounded { transition:background .2s }
+.insight-list .rounded:hover { background:#e9ecef }
 </style>
