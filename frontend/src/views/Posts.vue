@@ -42,9 +42,10 @@
       <div v-for="post in posts.items" :key="post.id" class="col-xl-3 col-lg-4 col-md-6 mb-4">
         <div class="card h-100 shadow-sm post-card" @click="viewPostDetails(post)" style="cursor:pointer">
           <!-- 首图 -->
-          <div class="card-img-container">
-            <img referrerpolicy="no-referrer" crossorigin="anonymous" v-if="getImages(post).length" :src="proxyUrl(getImages(post)[0])" class="card-img-top post-thumb" alt="" @error="$event.target.style.display='none'" loading="lazy">
-            <div v-else class="card-img-placeholder"><i class="bi bi-image text-muted" style="font-size:2rem"></i></div>
+          <div class="card-img-container" :style="!getImages(post).length ? {background: gradientBg(post.id)} : {}">
+            <img referrerpolicy="no-referrer" crossorigin="anonymous" v-if="getImages(post).length" :src="proxyUrl(getImages(post)[0])" class="card-img-top post-thumb" alt="" @error="onImgError($event)" loading="lazy">
+            <div v-if="!getImages(post).length" class="card-img-placeholder"><i class="bi bi-card-image" style="font-size:2.5rem;opacity:0.3"></i></div>
+            <div v-if="getImages(post).length>1" class="position-absolute bottom-0 end-0 m-1 bg-dark bg-opacity-50 text-white rounded px-1 small">{{ getImages(post).length }}图</div>
             <span class="badge bg-primary position-absolute top-0 start-0 m-2">小红书</span>
             <span v-if="post.hot_score > 0" class="badge bg-danger position-absolute top-0 end-0 m-2">🔥 {{ (post.hot_score||0).toFixed(1) }}</span>
           </div>
@@ -75,8 +76,8 @@
         <div v-for="post in posts.items" :key="post.id" class="list-group-item p-3 post-item" @click="viewPostDetails(post)" style="cursor:pointer">
           <div class="row g-3">
             <div class="col-auto" style="width:120px">
-              <img referrerpolicy="no-referrer" crossorigin="anonymous" v-if="getImages(post).length" :src="proxyUrl(getImages(post)[0])" class="rounded" style="width:120px;height:90px;object-fit:cover" alt="" @error="$event.target.style.display='none'" loading="lazy">
-              <div v-else class="rounded bg-light d-flex align-items-center justify-content-center" style="width:120px;height:90px"><i class="bi bi-image text-muted" style="font-size:1.5rem"></i></div>
+              <img referrerpolicy="no-referrer" crossorigin="anonymous" v-if="getImages(post).length" :src="proxyUrl(getImages(post)[0])" class="rounded" style="width:120px;height:90px;object-fit:cover" alt="" @error="onImgError($event)" loading="lazy">
+              <div v-else class="rounded d-flex align-items-center justify-content-center" :style="{background:gradientBg(post.id)}" style="width:120px;height:90px"><i class="bi bi-card-image" style="font-size:1.5rem;opacity:0.3"></i></div>
             </div>
             <div class="col">
               <div class="d-flex justify-content-between align-items-start">
@@ -243,6 +244,22 @@ const viewPostDetails = (post) => { selectedPost.value = post; activeImageIdx.va
 const formatDate = (d) => { if (!d) return ''; return new Date(d).toLocaleDateString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) }
 const truncateText = (t, n) => { if (!t) return ''; return t.length <= n ? t : t.slice(0, n) + '...' }
 const formatNumber = (n) => { n = n || 0; if (n >= 10000) return (n/10000).toFixed(1)+'w'; if (n >= 1000) return (n/1000).toFixed(1)+'k'; return String(n) }
+const onImgError = (e) => {
+  const parent = e.target.parentElement
+  e.target.remove()
+  parent.classList.add('no-image')
+  parent.style.background = gradientBg('err')
+  const icon = document.createElement('div')
+  icon.className = 'card-img-placeholder'
+  icon.innerHTML = '<i class="bi bi-image" style="font-size:2.5rem;opacity:0.3"></i>'
+  parent.prepend(icon)
+}
+const gradientBg = (seed) => {
+  const hues = ['200,70%,85%','280,60%,90%','160,60%,88%','30,80%,88%','340,70%,90%','45,75%,88%']
+  const idx = (typeof seed==='string' ? seed.charCodeAt(0)||0 : 0) % hues.length
+  return `linear-gradient(135deg, hsl(${hues[idx]}), hsl(${hues[(idx+3)%hues.length]}))`
+}
+
 const getDisplayTitle = (post) => {
   if (post?.title?.trim()) return post.title.trim()
   if (post?.content?.trim()) return post.content.replace(/[\n\r#]/g, ' ').trim().slice(0, 30) + '...'
@@ -253,9 +270,10 @@ onMounted(() => { if (typeof bootstrap === 'undefined') { const s = document.cre
 </script>
 
 <style scoped>
-.card-img-container { position:relative; overflow:hidden; height:180px; background:#f8f9fa }
+.card-img-container { position:relative; overflow:hidden; height:180px; background:#f0f0f0; transition:background .3s }
+.card-img-container.no-image { background:linear-gradient(135deg,#e8e8f0,#d8e0e8) !important }
 .post-thumb { width:100%; height:100%; object-fit:cover }
-.card-img-placeholder { width:100%; height:100%; display:flex; align-items:center; justify-content:center }
+.card-img-placeholder { width:100%; height:100%; display:flex; align-items:center; justify-content:center; position:absolute; top:0; left:0 }
 .post-card { transition: transform .2s, box-shadow .2s; border-radius:12px; overflow:hidden }
 .post-card:hover { transform: translateY(-4px); box-shadow: 0 8px 25px rgba(0,0,0,.12) !important }
 .post-item { transition: background .15s }
