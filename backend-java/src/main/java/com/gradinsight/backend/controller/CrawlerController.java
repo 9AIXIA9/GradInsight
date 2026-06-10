@@ -85,7 +85,7 @@ public class CrawlerController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String keyword) {
 
-        List<Task> all = taskRepository.findAll();
+        List<Task> all = taskRepository.findAllByOrderByCreatedAtDesc();
         var filtered = all.stream().filter(t -> {
             if (status != null && !status.isBlank()) {
                 try { if (t.getStatus() != Integer.parseInt(status)) return false; }
