@@ -35,20 +35,23 @@ app.include_router(analysis_router)
 
 
 if __name__ == "__main__":
+    from config import get_settings
+    settings = get_settings()
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--grpc-only", action="store_true")
     args = parser.parse_args()
 
     from grpc_server import serve
 
-    server = serve(port=5001)
-    logger.info("gRPC server started on port 5001")
+    server = serve(port=settings.GRPC_PORT)
+    logger.info(f"gRPC server started on port {settings.GRPC_PORT}")
 
     if args.grpc_only:
         logger.info("gRPC-only mode, press Ctrl+C to stop")
         server.wait_for_termination()
     else:
         import uvicorn
-        logger.info("Starting REST on port 5000...")
-        uvicorn.run(app, host="0.0.0.0", port=5000)
+        logger.info(f"Starting REST on port {settings.REST_PORT}...")
+        uvicorn.run(app, host=settings.REST_HOST, port=settings.REST_PORT)
         server.stop(grace=None)

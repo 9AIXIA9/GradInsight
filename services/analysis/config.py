@@ -14,9 +14,18 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # ---- 服务器 ----
-    SERVER_HOST: str = Field(default="0.0.0.0")
-    SERVER_PORT: int = Field(default=5000)
+    # ---- REST（调试兼容）----
+    REST_HOST: str = Field(default="0.0.0.0")
+    REST_PORT: int = Field(default=5000)
+
+    # ---- gRPC（Java 调用）----
+    GRPC_HOST: str = Field(default="0.0.0.0")
+    GRPC_PORT: int = Field(default=5001)
+
+    # ---- Consul ----
+    CONSUL_HOST: str = Field(default="127.0.0.1")
+    CONSUL_PORT: int = Field(default=8500)
+    CONSUL_SERVICE_NAME: str = Field(default="analysis-service")
 
     # ---- MySQL ----
     MYSQL_HOST: str = Field(default="localhost")
