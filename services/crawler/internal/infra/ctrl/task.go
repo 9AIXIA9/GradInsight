@@ -7,11 +7,10 @@ import (
 	"time"
 )
 
-// NewTask 创建新任务的工厂方法
+// NewTask 创建新任务
 func NewTask(request *proto.CrawlRequest) *domain.Task {
 	return &domain.Task{
 		ID:              snowflake.GenerateID(),
-		ParentID:        "",
 		Status:          domain.StatusPending,
 		PostsCollected:  0,
 		Err:             nil,
@@ -25,26 +24,5 @@ func NewTask(request *proto.CrawlRequest) *domain.Task {
 		CommentsPerPost: request.CommentsPerPost,
 		IncludeComments: request.IncludeComments,
 		IncludeImages:   request.IncludeImages,
-	}
-}
-
-// 创建子任务
-func createSubTask(parentTask *domain.Task, postCount uint64) *domain.Task {
-	return &domain.Task{
-		ID:              snowflake.GenerateID(),
-		ParentID:        parentTask.ID,
-		Status:          domain.StatusDivided,
-		PostsCollected:  0,
-		Err:             nil,
-		StartTime:       parentTask.StartTime,
-		EndTime:         parentTask.StartTime,
-		Site:            parentTask.Site,
-		Keyword:         parentTask.Keyword,
-		PostCount:       postCount,
-		MinLikes:        parentTask.MinLikes,
-		CommentMinLikes: parentTask.CommentMinLikes,
-		CommentsPerPost: parentTask.CommentsPerPost,
-		IncludeComments: parentTask.IncludeComments,
-		IncludeImages:   parentTask.IncludeImages,
 	}
 }

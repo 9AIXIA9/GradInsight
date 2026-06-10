@@ -22,15 +22,6 @@ func TaskFromDomain(task *domain.Task) *Tasks {
 		}
 	}
 
-	// 处理父ID
-	var parentID sql.NullString
-	if task.ParentID != "" {
-		parentID = sql.NullString{
-			String: string(task.ParentID),
-			Valid:  true,
-		}
-	}
-
 	// 处理结束时间
 	var endTime sql.NullTime
 	if !task.EndTime.IsZero() {
@@ -42,8 +33,8 @@ func TaskFromDomain(task *domain.Task) *Tasks {
 
 	return &Tasks{
 		Id:              string(task.ID),
-		ParentId:        parentID,
-		WaitSubCount:    task.WaitSubCount,
+		ParentId:        sql.NullString{},
+		WaitSubCount:    0,
 		Status:          int64(task.Status),
 		PostsCollected:  uint64(task.PostsCollected),
 		StartTime:       task.StartTime,

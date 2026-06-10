@@ -37,7 +37,7 @@ type TaskQueue struct {
 	WorkQueueSize    int
 	MaxWorkers       int
 	MaxTaskCacheSize int
-	DivideThreshold  uint64
+	BatchSize        uint64 // 每批次认领的帖数
 }
 
 type Resource struct {
