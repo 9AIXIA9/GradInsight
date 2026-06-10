@@ -276,12 +276,11 @@
         <div class="tab-content mt-3" id="analysisTabContent">
           <!-- 关键词标签页 -->
           <div class="tab-pane fade show active" id="keywords">
-            <div v-if="currentAnalysis.keyword_frequencies?.length > 0" class="keyword-cloud text-center p-3">
-              <span v-for="(kw, idx) in currentAnalysis.keyword_frequencies.slice(0, 30)" :key="kw.keyword"
-                class="badge m-1 px-3 py-2 keyword-tag"
-                :class="['bg-primary','bg-success','bg-info','bg-warning text-dark','bg-danger'][idx % 5]"
-                :style="{fontSize: (0.8 + Math.min(kw.frequency, 50) / 50) + 'em', opacity: 0.7 + idx * 0.01}">
-                {{ kw.keyword }} <small>({{ kw.frequency }})</small>
+            <div v-if="currentAnalysis.keyword_frequencies?.length > 0" class="keyword-cloud">
+              <span v-for="(kw, idx) in shuffledKeywords().slice(0, 30)" :key="kw.keyword"
+                class="keyword-pill"
+                :style="keywordStyle(kw, idx)">
+                {{ kw.keyword }}
               </span>
             </div>
             <div v-else class="text-center text-muted py-4">
@@ -669,6 +668,31 @@ const formatDate = (dateString) => {
   })
 }
 
+// 关键词云
+const shuffledKeywords = () => {
+  const kws = [...(currentAnalysis.value?.keyword_frequencies || [])]
+  for (let i = kws.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [kws[i], kws[j]] = [kws[j], kws[i]] }
+  return kws
+}
+const maxKeywordFreq = () => Math.max(...(currentAnalysis.value?.keyword_frequencies || []).map(k => k.frequency), 1)
+const keywordStyle = (kw, idx) => {
+  const ratio = kw.frequency / maxKeywordFreq()
+  const size = 0.85 + ratio * 1.2  // 0.85em ~ 2.05em
+  const hue = [200, 340, 160, 280, 30, 45, 190, 320, 120, 15][idx % 10]
+  const sat = 50 + ratio * 20
+  const light = 82 - ratio * 15
+  return {
+    fontSize: size + 'em',
+    background: `hsl(${hue}, ${sat}%, ${light}%)`,
+    color: '#444',
+    animationDelay: (idx * 0.04) + 's',
+    padding: `${0.3 + ratio * 0.5}em ${0.6 + ratio * 0.8}em`,
+    fontWeight: ratio > 0.5 ? 600 : 400,
+    marginTop: `${(Math.random() - 0.5) * 8}px`,
+    boxShadow: `0 1px 2px hsl(${hue}, ${sat}%, ${light - 10}%)`,
+  }
+}
+
 const getArray = (val) => {
   if (!val) return []
   if (Array.isArray(val)) return val
@@ -765,9 +789,10 @@ onMounted(async () => {
 }
 
 .border-info { border-color: #0dcaf0 !important }
-.keyword-cloud { line-height: 2.2 }
-.keyword-tag { cursor:default; transition:transform .15s; display:inline-block }
-.keyword-tag:hover { transform:scale(1.15) }
+.keyword-cloud { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:8px; padding:2rem 1rem; min-height:200px }
+.keyword-pill { display:inline-block; border-radius:50px; line-height:1.3; cursor:default; transition:all .25s ease; animation:fadeInUp .4s ease both }
+.keyword-pill:hover { transform:scale(1.2) !important; z-index:1; box-shadow:0 4px 15px rgba(0,0,0,.2) }
+@keyframes fadeInUp { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:translateY(0) } }
 .university-card { border-radius:12px; transition:box-shadow .2s }
 .university-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.1) }
 </style>
